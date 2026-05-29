@@ -24,7 +24,7 @@ export const Frame = (): JSX.Element => {
             title and the Start entry button, matching the mobile mockup. */}
         <div className="flex w-full flex-1 items-center justify-center">
           <div
-            className="relative w-60 h-60 max-w-[80%] aspect-square bg-white rounded-full overflow-hidden"
+            className="relative w-[237px] h-[237px] max-w-[80%] aspect-square bg-white rounded-full overflow-hidden"
             aria-hidden="true"
           >
             <img
