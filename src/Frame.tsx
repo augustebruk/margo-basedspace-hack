@@ -8,9 +8,9 @@ const legalLinks = [
 
 export const Frame = (): JSX.Element => {
   return (
-    <main className="flex min-h-dvh w-full items-stretch justify-center bg-[#f3f3f3]">
+    <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-[#f3f3f3] p-4">
       <section
-        className="flex min-h-dvh w-full max-w-[420px] flex-col items-center bg-white px-6 pt-[14vh] pb-[max(2rem,env(safe-area-inset-bottom))] relative"
+        className="flex h-[844px] w-[390px] shrink-0 flex-col items-center overflow-hidden rounded-[44px] bg-white px-6 pt-[118px] pb-8 shadow-[0_20px_60px_rgba(0,0,0,0.12)] relative"
         aria-labelledby="activate-agent-title"
       >
         <h1
