@@ -21,7 +21,7 @@ export const Frame = (): JSX.Element => {
         </h1>
 
         {/* Flexible spacer keeps the blob vertically centered between the
-            title and the Continue button, matching the mobile mockup. */}
+            title and the Start entry button, matching the mobile mockup. */}
         <div className="flex w-full flex-1 items-center justify-center">
           <div
             className="relative w-60 h-60 max-w-[80%] aspect-square bg-white rounded-full overflow-hidden"
@@ -38,10 +38,10 @@ export const Frame = (): JSX.Element => {
         <button
           type="button"
           className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-          aria-label="Continue"
+          aria-label="Start entry"
         >
           <span className="relative [font-family:'Inter',Helvetica] font-normal text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
-            Continue
+            Start entry
           </span>
         </button>
 
@@ -51,7 +51,7 @@ export const Frame = (): JSX.Element => {
 
         <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
           <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-            By tapping &apos;Continue&apos; and using our app, you&apos;re
+            By tapping &apos;Start entry&apos; and using our app, you&apos;re
             agreeing to our{" "}
           </span>
           <a
