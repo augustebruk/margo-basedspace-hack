@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BulbAvatar, type BulbState } from "./BulbAvatar";
 import { Controls } from "./Controls";
+import { MargoLogo } from "./MargoLogo";
 import { ReflectionView, type ReflectionViewProps } from "./ReflectionView";
 
 const legalLinks = [
@@ -166,8 +167,11 @@ export const Frame = (): JSX.Element => {
               // the voice bar on the next screen.
               exit={{ opacity: 0, y: -60, scale: 0.92 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="flex h-full w-full flex-col items-center px-6 pt-[118px] pb-8"
+              className="relative flex h-full w-full flex-col items-center px-6 pt-[118px] pb-8"
             >
+              {/* Brand logo, anchored at the top of the entry screen. */}
+              <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
+
               {/* Title fades out and unmounts once the entry starts. */}
               <AnimatePresence>
                 {!started && (
