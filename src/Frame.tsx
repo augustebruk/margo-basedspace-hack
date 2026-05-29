@@ -15,7 +15,7 @@ export const Frame = (): JSX.Element => {
       >
         <h1
           id="activate-agent-title"
-          className="relative w-fit [font-family:'Inter',Helvetica] font-normal text-[#1c2b33] text-[22px] text-center tracking-[-0.44px] leading-[22px] whitespace-nowrap overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-line-clamp:1] [-webkit-box-orient:vertical]"
+          className="relative w-fit [font-family:'Inter',Helvetica] font-normal text-[#1c2b33] text-[22px] text-center tracking-[-0.44px] leading-[1.3] whitespace-nowrap pb-px"
         >
           Activate Agent
         </h1>
@@ -40,7 +40,7 @@ export const Frame = (): JSX.Element => {
           className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
           aria-label="Continue"
         >
-          <span className="relative [font-family:'Inter',Helvetica] font-normal text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[22px] whitespace-nowrap overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-line-clamp:1] [-webkit-box-orient:vertical]">
+          <span className="relative [font-family:'Inter',Helvetica] font-normal text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
             Continue
           </span>
         </button>
