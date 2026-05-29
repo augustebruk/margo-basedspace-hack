@@ -2,7 +2,8 @@ import type { JSX } from "react";
 import { motion } from "motion/react";
 
 /* -------------------------------------------------------------------------- */
-/* Icons (inline SVG so we don't pull in an icon dependency)                  */
+/* Icons (inline SVG so we don't pull in an icon dependency). Color is         */
+/* inherited via `currentColor`, set by each button.                          */
 /* -------------------------------------------------------------------------- */
 
 const MicIcon = (): JSX.Element => (
@@ -58,14 +59,21 @@ const ForwardIcon = (): JSX.Element => (
 );
 
 /* -------------------------------------------------------------------------- */
-/* Bottom control bar                                                         */
+/* Color tokens                                                               */
 /* -------------------------------------------------------------------------- */
 
-// Shared circular button look (soft shadow + faint gradient matching the bulb).
+// Medium gray / soft navy for icons (good contrast, never pure black).
+const ICON_COLOR = "#54656e";
+// Pastel rose from the orb family used for the mic recording ring + icon.
+const RECORD_ACCENT = "#e6a6c1";
+
+// Secondary buttons: a very light, translucent tint of the orb gradient —
+// lighter than the orb itself so they stay subordinate to the mic.
 const sideButtonClass =
   "all-[unset] box-border flex h-14 w-14 cursor-pointer items-center justify-center rounded-full " +
-  "bg-[linear-gradient(135deg,rgba(244,231,255,0.55)_0%,rgba(253,221,222,0.55)_100%)] text-[#1c2b33] " +
-  "shadow-[0_8px_22px_rgba(28,43,51,0.12)] " +
+  "bg-[linear-gradient(135deg,rgba(244,231,255,0.4)_0%,rgba(253,221,222,0.4)_100%)] " +
+  "border border-[rgba(244,231,255,0.6)] " +
+  "shadow-[0_6px_16px_rgba(28,43,51,0.08)] " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]";
 
 interface ControlsProps {
@@ -83,55 +91,85 @@ export const Controls = ({
 }: ControlsProps): JSX.Element => {
   return (
     <div className="flex w-full items-center justify-center gap-9 pb-[env(safe-area-inset-bottom)]">
-      {/* Left — Finish entry */}
+      {/* Left — Finish entry (secondary, soft tint, no color change on press) */}
       <motion.button
         type="button"
         onClick={onFinish}
-        whileTap={{ scale: 0.95 }}
+        whileTap={{ scale: 0.96, boxShadow: "0 10px 24px rgba(28,43,51,0.16)" }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
         className={sideButtonClass}
+        style={{ color: ICON_COLOR }}
         aria-label="Finish entry"
         title="Finish entry"
       >
         <CheckIcon />
       </motion.button>
 
-      {/* Center — Mic (dominant, larger). Pulsing glow while recording. */}
-      <div className="relative flex items-center justify-center">
+      {/* Center — Mic (dominant). Always white; recording shown with a gentle
+          pulsing pastel ring + soft inner glow, never a heavy fill. */}
+      <motion.button
+        type="button"
+        onClick={onMicToggle}
+        whileTap={{ scale: 0.97 }}
+        // Recording: slight scale up + softer, larger shadow (still white).
+        animate={{
+          scale: isRecording ? 1.04 : 1,
+          boxShadow: isRecording
+            ? "0 16px 38px rgba(28,43,51,0.16)"
+            : "0 10px 26px rgba(28,43,51,0.10)",
+        }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        aria-label={isRecording ? "Stop recording" : "Start recording"}
+        aria-pressed={isRecording}
+        style={{ color: isRecording ? RECORD_ACCENT : ICON_COLOR }}
+        className={
+          "all-[unset] box-border relative flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-full " +
+          // Always pure white, with a 1px light pastel border from the orb.
+          "bg-white border " +
+          (isRecording
+            ? "border-[rgba(230,166,193,0.55)]"
+            : "border-[rgba(244,231,255,0.9)]") +
+          " focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+        }
+      >
         {isRecording && (
-          <motion.span
-            aria-hidden="true"
-            className="absolute h-[72px] w-[72px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-md"
-            animate={{ opacity: [0.45, 0.85, 0.45], scale: [1, 1.28, 1] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-          />
+          <>
+            {/* Thin pastel ring that gently pulses around the circle. */}
+            <motion.span
+              aria-hidden="true"
+              className="absolute -inset-[5px] rounded-full border-2"
+              style={{ borderColor: RECORD_ACCENT }}
+              initial={{ opacity: 0.4, scale: 1 }}
+              animate={{ opacity: [0.35, 0.85, 0.35], scale: [1, 1.12, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+            {/* Subtle inner glow in the same pastel. */}
+            <motion.span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(230,166,193,0.30) 0%, rgba(230,166,193,0) 70%)",
+              }}
+              animate={{ opacity: [0.4, 0.85, 0.4] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </>
         )}
-        <motion.button
-          type="button"
-          onClick={onMicToggle}
-          whileTap={{ scale: 0.95 }}
-          aria-label={isRecording ? "Stop recording" : "Start recording"}
-          aria-pressed={isRecording}
-          className={
-            "all-[unset] box-border relative flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-full " +
-            "text-[#1c2b33] shadow-[0_10px_28px_rgba(28,43,51,0.18)] transition-colors " +
-            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33] " +
-            (isRecording
-              ? // Recording: filled gradient circle, icon highlighted.
-                "bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)]"
-              : // Idle: soft, light surface.
-                "bg-white")
-          }
-        >
+        {/* Icon sits above the glow/ring. */}
+        <span className="relative">
           <MicIcon />
-        </motion.button>
-      </div>
+        </span>
+      </motion.button>
 
-      {/* Right — Next prompt */}
+      {/* Right — Next prompt (secondary, soft tint, no color change on press) */}
       <motion.button
         type="button"
         onClick={onNext}
-        whileTap={{ scale: 0.95 }}
+        whileTap={{ scale: 0.96, boxShadow: "0 10px 24px rgba(28,43,51,0.16)" }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
         className={sideButtonClass}
+        style={{ color: ICON_COLOR }}
         aria-label="Next prompt"
         title="Next prompt"
       >
