@@ -202,7 +202,7 @@ export const Frame = (): JSX.Element => {
                       <motion.span
                         key={burstKey}
                         aria-hidden="true"
-                        className="absolute h-[235px] w-[235px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
+                        className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
                         initial={{ opacity: 0.6, scale: 1 }}
                         animate={{ opacity: 0, scale: 1.7 }}
                         transition={{ duration: 0.7, ease: "easeOut" }}

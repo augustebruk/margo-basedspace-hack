@@ -11,26 +11,22 @@ import image305 from "./assets/image-305.png";
 export type BulbState = "idle" | "aiSpeaking" | "personSpeaking";
 
 // Scale ("breathing") animation for the bulb itself.
-// Tweak the `duration` values to make a state feel faster / calmer.
 const bulbVariants: Variants = {
   idle: {
     scale: [1, 1.02, 1],
     transition: { duration: 5, repeat: Infinity, ease: "easeInOut" },
   },
   aiSpeaking: {
-    // Spec: smooth 0.95 → 1 → 0.95 breathing while the AI speaks.
     scale: [0.95, 1, 0.95],
     transition: { duration: 2.4, repeat: Infinity, ease: "easeInOut" },
   },
   personSpeaking: {
-    // Calmer than AI speaking: almost no scale, very slow drift.
     scale: [1, 1.008, 1],
     transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
   },
 };
 
-// Soft gradient halo behind the bulb. It pulses with the gradient colors when
-// the AI speaks, and settles into a gentle steady glow while listening.
+// Soft gradient halo behind the bulb. Pulses hardest while the AI speaks.
 const glowVariants: Variants = {
   idle: {
     opacity: [0.2, 0.32, 0.2],
@@ -58,7 +54,7 @@ interface BulbAvatarProps {
 
 export const BulbAvatar = ({
   state,
-  size = 235,
+  size = 232,
   className,
 }: BulbAvatarProps): JSX.Element => {
   return (

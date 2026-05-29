@@ -64,8 +64,8 @@ const ForwardIcon = (): JSX.Element => (
 
 // Medium gray / soft navy for icons (good contrast, never pure black).
 const ICON_COLOR = "#54656e";
-// Pastel rose from the orb family used for the mic recording ring + icon.
-const RECORD_ACCENT = "#e6a6c1";
+// Pastel purple from the orb family used for the mic recording ring + icon.
+const RECORD_ACCENT = "#b6a0e0";
 
 // Secondary buttons: a very light, translucent tint of the orb gradient —
 // lighter than the orb itself so they stay subordinate to the mic.
@@ -127,7 +127,7 @@ export const Controls = ({
           // Always pure white, with a 1px light pastel border from the orb.
           "bg-white border " +
           (isRecording
-            ? "border-[rgba(230,166,193,0.55)]"
+            ? "border-[rgba(182,160,224,0.55)]"
             : "border-[rgba(244,231,255,0.9)]") +
           " focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
         }
@@ -149,7 +149,7 @@ export const Controls = ({
               className="absolute inset-0 rounded-full"
               style={{
                 background:
-                  "radial-gradient(circle, rgba(230,166,193,0.30) 0%, rgba(230,166,193,0) 70%)",
+                  "radial-gradient(circle, rgba(182,160,224,0.30) 0%, rgba(182,160,224,0) 70%)",
               }}
               animate={{ opacity: [0.4, 0.85, 0.4] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
