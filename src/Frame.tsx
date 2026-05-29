@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BulbAvatar, type BulbState } from "./BulbAvatar";
 import { Controls } from "./Controls";
+import { ReflectionView, type ReflectionViewProps } from "./ReflectionView";
 
 const legalLinks = [
   { label: "Terms of Service", href: "#terms" },
@@ -17,50 +18,65 @@ const QUESTIONS = [
   "What would you tell a friend in your situation?",
 ];
 
+// MOCK reflection output. Replace with real AI results — the shape already
+// supports raw themes + recurrence/frequency info for the patterns.
+const REFLECTION: Omit<
+  ReflectionViewProps,
+  "aiSpeaking" | "onSummaryComplete" | "onStartDailyPractice"
+> = {
+  summary:
+    "Given everything you're juggling, it makes sense that you feel overwhelmed. You're carrying a lot and still showing up. That deserves some gentleness.",
+  patterns: [
+    { label: "Overwhelm", recurrenceLabel: "3x this week" },
+    { label: "Need for rest", recurrenceLabel: "recurring" },
+    { label: "Boundary setting", recurrenceLabel: "2 entries" },
+    { label: "Self-criticism" },
+  ],
+  interpretation:
+    "Across your last few entries, you often mention feeling drained after saying yes to extra work. It seems like your need for rest keeps colliding with a fear of letting people down. What would it look like to protect a little more rest this week without disappointing yourself?",
+  nextSteps: [
+    "Block 20 minutes of unscheduled rest today.",
+    "Say no to one non-essential request.",
+    "Note one thing you handled well.",
+  ],
+};
+
 /* ============================================================================
- * PLACEHOLDER BACKEND HANDLERS
- * Replace the bodies with real calls to your AI backend. They are intentionally
- * thin so the wiring above stays declarative.
+ * PLACEHOLDER BACKEND HANDLERS — replace bodies with real AI/navigation calls.
  * ==========================================================================*/
 function onUserFinishedSpeaking(transcript: string): void {
   // TODO: send the captured transcript to the AI and await the next question.
   console.log("[AI] user finished speaking:", transcript);
 }
 function onFinishEntry(): void {
-  // TODO: finalize the entry and navigate to the summary + practice screen.
-  console.log("[AI] finish entry → open summary/practice screen");
+  // TODO: finalize the entry server-side and request the reflection summary.
+  console.log("[AI] finish entry → generate reflection");
 }
 function onNextPrompt(): void {
   // TODO: ask the AI for the next question/prompt.
   console.log("[AI] next prompt requested");
 }
+function onStartDailyPractice(): void {
+  // TODO: navigate to the practice experience built from the next steps.
+  console.log("[practice] start daily practice");
+}
+
+type Phase = "entry" | "reflection";
 
 export const Frame = (): JSX.Element => {
-  // --- Conversation state machine -------------------------------------
-  // "idle"           → before the entry starts (Start Entry button visible)
-  // "aiSpeaking"     → the AI (bulb) is talking; question visible
-  // "personSpeaking" → the AI is listening; question hidden, transcript shown
+  // Which screen we're on. "entry" = journaling, "reflection" = summary screen.
+  const [phase, setPhase] = useState<Phase>("entry");
+
+  // --- Entry conversation state machine -------------------------------
   const [bulbState, setBulbState] = useState<BulbState>("idle");
-
-  // Question shown under the bulb while the AI speaks (kept in state while
-  // listening so it can re-appear instantly).
   const [currentQuestion, setCurrentQuestion] = useState(QUESTIONS[0]);
-
-  // Live transcription of the person speaking. Plain string → trivial to
-  // persist later for the Notion-like history page.
   const [personTranscript, setPersonTranscript] = useState("");
-
-  // Mic recording on/off.
   const [isRecording, setIsRecording] = useState(false);
-
-  // Whether the entry is closing (Finish entry tapped) — drives the fade-out.
-  const [closing, setClosing] = useState(false);
-
-  // One-shot glow-burst trigger for the Start Entry transition.
   const [burstKey, setBurstKey] = useState(0);
-
-  // Rotating index into QUESTIONS for the demo conversation.
   const questionIndex = useRef(0);
+
+  // Reflection screen: true while the AI "reads" the summary (drives the wave).
+  const [reflectionSpeaking, setReflectionSpeaking] = useState(false);
 
   const started = bulbState !== "idle";
   const aiSpeaking = bulbState === "aiSpeaking";
@@ -83,53 +99,46 @@ export const Frame = (): JSX.Element => {
   }, []);
   // ===================================================================
 
-  // Pick the next demo question (wraps around).
   const nextQuestion = useCallback(() => {
     questionIndex.current = (questionIndex.current + 1) % QUESTIONS.length;
     return QUESTIONS[questionIndex.current];
   }, []);
 
-  // Start Entry: the AI always speaks first with the opening question.
   const handleStartEntry = () => {
     questionIndex.current = 0;
-    setBurstKey((k) => k + 1); // play the glow-burst transition
+    setBurstKey((k) => k + 1);
     aiSay(QUESTIONS[0]);
   };
 
-  // Mic toggle — the core of the recording flow.
   const handleMicToggle = () => {
     if (isRecording) {
-      // Turning OFF: stop listening, hand the transcript to the AI, and let
-      // the AI respond with the next question.
       setIsRecording(false);
       onUserFinishedSpeaking(personTranscript);
       aiSay(nextQuestion());
     } else {
-      // Turning ON: AI stops, person starts; live transcription begins.
       setIsRecording(true);
       listen();
     }
   };
 
-  // Next prompt — skip ahead to the next AI question.
   const handleNextPrompt = () => {
     onNextPrompt();
     if (isRecording) setIsRecording(false);
-    // If we were listening and have something captured, treat it as finished.
     if (!aiSpeaking && personTranscript) onUserFinishedSpeaking(personTranscript);
     aiSay(nextQuestion());
   };
 
-  // Finish entry — stop recording, fade things out, finalize the session.
+  // Finish entry → stop recording, run the orb→voice-bar transition, and move
+  // into the reflection phase with the AI "speaking" the summary.
   const handleFinishEntry = () => {
     if (isRecording) setIsRecording(false);
-    setClosing(true);
     onFinishEntry();
+    setReflectionSpeaking(true);
+    setPhase("reflection");
   };
 
-  // DEMO ONLY: simulate live speech-to-text while recording by revealing a
-  // sample sentence word-by-word. Remove once a real STT stream feeds
-  // `setPersonTranscript`.
+  // DEMO ONLY: simulate live speech-to-text while recording. Remove once a
+  // real STT stream feeds `setPersonTranscript`.
   useEffect(() => {
     if (!isRecording) return;
     const words =
@@ -148,34 +157,16 @@ export const Frame = (): JSX.Element => {
 
   return (
     <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-[#f3f3f3] p-4">
-      <section
-        className="flex h-[844px] w-[390px] shrink-0 flex-col items-center overflow-hidden rounded-[44px] bg-white px-6 pt-[118px] pb-8 shadow-[0_20px_60px_rgba(0,0,0,0.12)] relative"
-        aria-labelledby="activate-agent-title"
-      >
+      <section className="relative flex h-[844px] w-[390px] shrink-0 flex-col overflow-hidden rounded-[44px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
         <AnimatePresence mode="wait">
-          {closing ? (
-            // Closing screen — placeholder until the summary/practice screen
-            // is built. `onFinishEntry()` is where you'd navigate instead.
+          {phase === "entry" ? (
             <motion.div
-              key="closing"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.25 }}
-              className="flex h-full w-full flex-col items-center justify-center gap-2 text-center"
-            >
-              <p className="[font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] tracking-[-0.4px]">
-                Wrapping up your entry…
-              </p>
-              <p className="[font-family:'Inter',Helvetica] font-normal text-[15px] text-[#1c2b33]/55">
-                Preparing your summary &amp; practice.
-              </p>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="conversation"
-              exit={{ opacity: 0, scale: 0.96 }}
+              key="entry"
+              // Exit upward + shrink so it reads like the orb flowing up into
+              // the voice bar on the next screen.
+              exit={{ opacity: 0, y: -60, scale: 0.92 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="flex h-full w-full flex-col items-center"
+              className="flex h-full w-full flex-col items-center px-6 pt-[118px] pb-8"
             >
               {/* Title fades out and unmounts once the entry starts. */}
               <AnimatePresence>
@@ -196,7 +187,6 @@ export const Frame = (): JSX.Element => {
               {/* Bulb + AI question stack, vertically centered. */}
               <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
                 <div className="relative flex items-center justify-center">
-                  {/* One-shot glow burst played on the Start Entry transition. */}
                   <AnimatePresence>
                     {burstKey > 0 && (
                       <motion.span
@@ -213,8 +203,6 @@ export const Frame = (): JSX.Element => {
                   <BulbAvatar state={bulbState} />
                 </div>
 
-                {/* AI question — visible only while the AI is speaking. Inter
-                    medium, centered, slightly larger than the title. */}
                 <AnimatePresence mode="wait">
                   {aiSpeaking && (
                     <motion.p
@@ -282,7 +270,6 @@ export const Frame = (): JSX.Element => {
                       transition={{ duration: 0.5, ease: "easeOut" }}
                       className="flex w-full flex-col items-center gap-7"
                     >
-                      {/* Transcript / hint zone above the controls. */}
                       <div className="flex min-h-[64px] w-full items-end justify-center px-2">
                         <AnimatePresence mode="wait">
                           {personSpeaking && (
@@ -297,8 +284,6 @@ export const Frame = (): JSX.Element => {
                               <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
                                 Your turn
                               </span>
-                              {/* Live transcription — secondary to the bulb +
-                                  question: Inter regular, smaller, dimmer. */}
                               <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55">
                                 {personTranscript || "Listening…"}
                               </p>
@@ -307,7 +292,6 @@ export const Frame = (): JSX.Element => {
                         </AnimatePresence>
                       </div>
 
-                      {/* Bottom control bar (mic / finish / next). */}
                       <Controls
                         isRecording={isRecording}
                         onMicToggle={handleMicToggle}
@@ -319,6 +303,17 @@ export const Frame = (): JSX.Element => {
                 </AnimatePresence>
               </div>
             </motion.div>
+          ) : (
+            <ReflectionView
+              key="reflection"
+              summary={REFLECTION.summary}
+              patterns={REFLECTION.patterns}
+              interpretation={REFLECTION.interpretation}
+              nextSteps={REFLECTION.nextSteps}
+              aiSpeaking={reflectionSpeaking}
+              onSummaryComplete={() => setReflectionSpeaking(false)}
+              onStartDailyPractice={onStartDailyPractice}
+            />
           )}
         </AnimatePresence>
       </section>
