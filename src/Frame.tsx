@@ -177,12 +177,21 @@ export const Frame = (): JSX.Element => {
               transition={{ duration: 0.5, ease: "easeInOut" }}
               className="flex h-full w-full flex-col items-center"
             >
-              <h1
-                id="activate-agent-title"
-                className="relative w-fit [font-family:'Inter',Helvetica] font-normal text-[#1c2b33] text-[22px] text-center tracking-[-0.44px] leading-[1.3] whitespace-nowrap pb-px"
-              >
-                Activate Agent
-              </h1>
+              {/* Title fades out and unmounts once the entry starts. */}
+              <AnimatePresence>
+                {!started && (
+                  <motion.h1
+                    key="title"
+                    id="activate-agent-title"
+                    initial={false}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="relative w-fit [font-family:'Inter',Helvetica] font-normal text-[#1c2b33] text-[22px] text-center tracking-[-0.44px] leading-[1.3] whitespace-nowrap pb-px"
+                  >
+                    Activate Agent
+                  </motion.h1>
+                )}
+              </AnimatePresence>
 
               {/* Bulb + AI question stack, vertically centered. */}
               <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
@@ -193,7 +202,7 @@ export const Frame = (): JSX.Element => {
                       <motion.span
                         key={burstKey}
                         aria-hidden="true"
-                        className="absolute h-[235px] w-[235px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
+                        className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
                         initial={{ opacity: 0.6, scale: 1 }}
                         animate={{ opacity: 0, scale: 1.7 }}
                         transition={{ duration: 0.7, ease: "easeOut" }}
@@ -201,11 +210,11 @@ export const Frame = (): JSX.Element => {
                     )}
                   </AnimatePresence>
 
-                  <BulbAvatar state={bulbState} />
+                  <BulbAvatar visualState={bulbState} />
                 </div>
 
-                {/* AI question — visible only while the AI is speaking. Larger
-                    and more dominant than the title, Inter medium, centered. */}
+                {/* AI question — visible only while the AI is speaking. Inter
+                    medium, centered, slightly larger than the title. */}
                 <AnimatePresence mode="wait">
                   {aiSpeaking && (
                     <motion.p
@@ -214,7 +223,7 @@ export const Frame = (): JSX.Element => {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
-                      className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[28px] leading-[1.3] tracking-[-0.4px]"
+                      className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] leading-[1.3] tracking-[-0.4px]"
                     >
                       {currentQuestion}
                     </motion.p>
