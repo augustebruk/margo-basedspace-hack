@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**Margo** — a frontend-only React + Vite + TypeScript prototype of a voice-journaling mobile app, styled with Tailwind CSS v4 and animated with `motion` (Framer Motion). It implements a Figma mockup; there is **no app backend** — but the AI features are real and served by small Vite dev/preview proxies that hold the keys server-side: **speech-to-text** (ElevenLabs Scribe v2 Realtime), **text-to-speech** for Margo's voice in onboarding (ElevenLabs TTS), and a single `/api/reflection` LLM proxy (Anthropic Claude) that — switched by a `mode` field — generates the entry **reflection** (summary / patterns / next steps / topic / atom-graph seed), the live **follow-up questions**, tonight's personalized **practice**, the cross-entry **insights** period reflection, and the onboarding **insight** ("Pattern Reveal"). The app is designed for a mobile viewport (390×844) and renders a phone-shaped frame centered on any screen. Past entries are persisted locally (`localStorage`) so the History and Insights screens have something to look back across.
+**Margo** — a frontend-only React + Vite + TypeScript prototype of a voice-journaling mobile app, styled with Tailwind CSS v4 and animated with `motion` (Framer Motion). It implements a Figma mockup; there is **no separate app backend** — but the AI features are real and served by small request handlers that hold the keys server-side: **speech-to-text** (ElevenLabs Scribe v2 Realtime), **text-to-speech** for Margo's voice in onboarding (ElevenLabs TTS), and a single `/api/reflection` LLM proxy (Anthropic Claude) that — switched by a `mode` field — generates the entry **reflection** (summary / patterns / next steps / topic / atom-graph seed), the live **follow-up questions**, tonight's personalized **practice**, the cross-entry **insights** period reflection, and the onboarding **insight** ("Pattern Reveal"). In **dev** these run as Vite dev/preview middleware (`vite-plugins/*`); in **production** the exact same handlers run inside a tiny Node server (`server.ts`) — see "Production server" below. The app is designed for a mobile viewport (390×844) and renders a phone-shaped frame centered on any screen. Past entries are persisted locally (`localStorage`) so the History and Insights screens have something to look back across.
 
 ## Commands
 
@@ -12,23 +12,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm install          # Node 22+
 npm run dev          # Vite dev server, http://localhost:5173
 npm run dev -- --host 0.0.0.0   # expose outside a container (Cloud Agent VMs)
-npm run build        # tsc -b && vite build (this is the typecheck + build gate)
-npm run preview      # serve the production bundle
+npm run build        # tsc -b && vite build && npm run build:server (typecheck + build gate; emits dist/ + server.js)
+npm run preview      # serve the production bundle (Vite preview)
+npm start            # production: node server.js (serves dist/ + /api/*; run npm run build first)
 ```
 
-There is **no lint, formatter, or test runner configured**. `npm run build` is the only verification gate — TypeScript runs in `strict` mode with `noUnusedLocals`/`noUnusedParameters`, so unused symbols fail the build.
+There is **no lint, formatter, or test runner configured**. `npm run build` is the only verification gate — TypeScript runs in `strict` mode with `noUnusedLocals`/`noUnusedParameters`, so unused symbols fail the build. `build` has three stages: `tsc -b` (typecheck), `vite build` (the SPA → `dist/`), and `build:server` (esbuild bundles `server.ts` → `server.js`).
+
+## Production server
+
+In dev/preview the `/api/*` routes are Vite middleware (`vite-plugins/*`). A purely static deploy of `dist/` 404s on every `/api/*` call (broken STT/TTS/reflection), so production needs a running Node process.
+
+- **`server.ts`** — a tiny `node:http` server that serves the built SPA from `dist/` (with history-API fallback + long-cache headers on `/assets/*`) and handles `/api/scribe-token`, `/api/tts`, `/api/reflection` using the **same** handler factories imported from `vite-plugins/*` (`createScribeTokenHandler`, `createTtsHandler`, `createReflectionHandler`), so dev and prod behave identically. It auto-loads a local `.env` via `process.loadEnvFile()` (guarded — managed hosts inject env vars instead), and listens on `PORT` (default 3000) / `HOST` (default `0.0.0.0`). Secrets stay server-side only.
+- **Build/run:** `npm run build:server` bundles `server.ts` → `server.js` with esbuild (`--platform=node --format=esm --packages=external`); `npm start` runs `node server.js`. `npm run build` runs `build:server` as its last stage. Deploy as a **Node app** (e.g. Hostinger Node.js hosting), not a static site — see README's "Deploying to production".
 
 ## Speech-to-text (ElevenLabs Scribe)
 
 Live transcription is wired to **ElevenLabs Scribe v2 Realtime** (`@elevenlabs/client`).
 
-- **`src/useScribe.ts`** — React hook owning one Scribe WebSocket per recording session. It fetches a single-use token, opens `Scribe.connect({ modelId: "scribe_v2_realtime", commitStrategy: VAD, microphone: {...} })`, and forwards `partial_transcript` / `committed_transcript` events to `setPersonTranscript`.
-- **`vite-plugins/scribeToken.ts`** — dev/preview middleware serving `POST /api/scribe-token`. It exchanges the server-side `ELEVENLABS_API_KEY` for a short-lived (~15 min) single-use token via `https://api.elevenlabs.io/v1/single-use-token/realtime_scribe`. The raw key never reaches the browser. **In production, replace this with a real serverless route at the same path.**
+- **`src/useScribe.ts`** — React hook owning one Scribe WebSocket per recording session. It fetches a single-use token, opens `Scribe.connect({ modelId: "scribe_v2_realtime", commitStrategy: VAD, microphone: {...} })`, and forwards `partial_transcript` / `committed_transcript` events to `setPersonTranscript`. It exposes `requestPermission()` and, inside `start()`, **eagerly primes the mic permission** (`navigator.mediaDevices.getUserMedia`) synchronously within the user gesture *before* the token fetch — Safari/iOS/Private mode only show the permission prompt when `getUserMedia` is reached directly from the gesture's call stack, and the Scribe client's own `getUserMedia` runs too late (after the `await fetchToken()`). The primer stream is stopped immediately; `getUserMedia` rejections are turned into actionable, Safari-aware error messages.
+- **`vite-plugins/scribeToken.ts`** — dev/preview middleware serving `POST /api/scribe-token`. It exchanges the server-side `ELEVENLABS_API_KEY` for a short-lived (~15 min) single-use token via `https://api.elevenlabs.io/v1/single-use-token/realtime_scribe`. The raw key never reaches the browser. In production the **same** handler runs inside `server.ts` (see "Production server").
 - **Env:** copy `.env.example` → `.env` and set `ELEVENLABS_API_KEY`. The var is intentionally **not** `VITE_`-prefixed so Vite never inlines it into the client bundle. Restart the dev server after editing `.env`. Without a key, the mic UI works but shows a "key not set" error in the transcript area.
 
 ## The `/api/reflection` LLM proxy (modes)
 
-A single dev/preview middleware — **`vite-plugins/reflection.ts`** — serves `POST /api/reflection`. It holds the server-side `ANTHROPIC_API_KEY`, shares one Margo persona prompt, and branches on a `mode` field in the request body to pick the right system prompt + response shape. It tolerantly extracts/validates JSON from the model before returning it. **In production, replace with a real serverless route at the same path** (swap provider/model here as needed). All client hooks fall back to a built-in mock when the key is missing, the request fails, or the input is empty, so every screen always reads as finished.
+A single dev/preview middleware — **`vite-plugins/reflection.ts`** — serves `POST /api/reflection`. It holds the server-side `ANTHROPIC_API_KEY`, shares one Margo persona prompt, and branches on a `mode` field in the request body to pick the right system prompt + response shape. It tolerantly extracts/validates JSON from the model before returning it. In production the **same** handler runs inside `server.ts` (see "Production server"); swap provider/model in the handler factory as needed. All client hooks fall back to a built-in mock when the key is missing, the request fails, or the input is empty, so every screen always reads as finished.
 
 | Mode (request `mode`) | Client hook | Returns | Used for |
 |------------------------|-------------|---------|----------|
@@ -65,7 +73,7 @@ A single dev/preview middleware — **`vite-plugins/reflection.ts`** — serves 
 Margo speaks her onboarding lines with **real ElevenLabs TTS**.
 
 - **`src/useMargoVoice.ts`** — hook exposing `speak(text)`, `prefetch(text)` (warm upcoming audio to hide latency), `unlock()` (play a silent clip on first user gesture to satisfy browser autoplay policy), `stop()`, and `speaking`. Caches fetched audio by text; if TTS fails it degrades gracefully (resolves after an estimated duration so the flow keeps advancing without sound).
-- **`vite-plugins/tts.ts`** — dev/preview middleware serving `POST /api/tts`. Holds the server-side `ELEVENLABS_API_KEY`, calls ElevenLabs TTS, and streams `audio/mpeg` back. **In production, replace with a real serverless route at the same path.**
+- **`vite-plugins/tts.ts`** — dev/preview middleware serving `POST /api/tts`. Holds the server-side `ELEVENLABS_API_KEY`, calls ElevenLabs TTS, and streams `audio/mpeg` back. In production the **same** handler runs inside `server.ts` (see "Production server").
 - **Env:** `ELEVENLABS_API_KEY` (shared with STT) and optional `ELEVENLABS_VOICE_ID`. Server-side only, no `VITE_` prefix.
 
 ## Client-side env flags
@@ -104,7 +112,7 @@ New users start in `onboarding`; returning users (who have `margo:onboardingComp
 
 ### Where to plug in a real backend
 
-`Frame.tsx` is the integration seam, and `/api/reflection` + `/api/scribe-token` + `/api/tts` are the proxy seams. Speech-to-text (`useScribe`), TTS (`useMargoVoice`), and all LLM generation (reflection, follow-ups, practice, insights, onboarding insight) are **already wired** — only the dev/preview middleware needs swapping for real serverless routes at the same paths. Persistence is `localStorage`-only (`useEntries`); the `Entry` shape is what a real backend route should return.
+`Frame.tsx` is the integration seam, and `/api/reflection` + `/api/scribe-token` + `/api/tts` are the proxy seams. Speech-to-text (`useScribe`), TTS (`useMargoVoice`), and all LLM generation (reflection, follow-ups, practice, insights, onboarding insight) are **already wired**. The three `/api/*` routes are implemented once as handler factories in `vite-plugins/*` and shared between the Vite dev/preview middleware and the production `server.ts` — to use a different provider/model, edit those factories (and the prod server picks it up automatically). Persistence is `localStorage`-only (`useEntries`); the `Entry` shape is what a real backend route should return.
 
 ### Components & modules (`src/`)
 

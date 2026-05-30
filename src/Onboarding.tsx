@@ -86,6 +86,7 @@ export const Onboarding = ({
 
   const {
     start: startScribe,
+    requestPermission: requestMicPermission,
     stop: stopScribe,
     active: recording,
     error: scribeError,
@@ -107,9 +108,14 @@ export const Onboarding = ({
     if (unlocked) return;
     setUnlocked(true);
     unlock();
+    // Request mic permission on this first tap (a user gesture) so Safari/iOS/
+    // Private mode prompt reliably. The name/entry steps auto-start the mic from
+    // a timer (not a gesture), which would otherwise be too late for Safari to
+    // show the prompt; priming here secures the grant up front.
+    void requestMicPermission();
     // Warm the next two spoken lines while the intro types out.
     prefetch(LINE_NAME);
-  }, [unlocked, unlock, prefetch]);
+  }, [unlocked, unlock, requestMicPermission, prefetch]);
 
   // Run the spoken script for each step. Driven by `step` transitions.
   useEffect(() => {

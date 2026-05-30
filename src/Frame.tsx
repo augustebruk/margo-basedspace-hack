@@ -102,6 +102,7 @@ export const Frame = (): JSX.Element => {
   // ===================================================================
   const {
     start: startScribe,
+    requestPermission: requestMicPermission,
     stop: stopScribe,
     error: scribeError,
   } = useScribe(setPersonTranscript);
@@ -184,6 +185,12 @@ export const Frame = (): JSX.Element => {
     } else {
       // (Re)activate the mic. Any text already captured (spoken or typed) is
       // kept; new speech is appended to it via the scribe seed.
+      //
+      // Request mic permission *here*, synchronously inside this click handler,
+      // so Safari/iOS/Private-mode reliably show the permission prompt (they
+      // only prompt when getUserMedia is reached directly from a user gesture;
+      // the later start() runs from an effect/microtask, which is too late).
+      void requestMicPermission();
       setIsTyping(false);
       setIsRecording(true);
       setHasEverSpoken(true);

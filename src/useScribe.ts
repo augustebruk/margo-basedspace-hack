@@ -29,6 +29,15 @@ interface UseScribeResult {
    * appended after it instead of starting from an empty buffer.
    */
   start: (seed?: string) => Promise<void>;
+  /**
+   * Request microphone permission *now*, synchronously within a user gesture
+   * (e.g. the mic-button click handler). Safari/iOS/Private-mode only show the
+   * permission prompt when getUserMedia is reached directly from a gesture's
+   * call stack, so callers should `void requestPermission()` from the click
+   * handler before flipping recording state on. Resolves true if granted (or
+   * already granted); on denial/error it sets `error` and resolves false.
+   */
+  requestPermission: () => Promise<boolean>;
   /** End the session; resolves with the full final transcript. */
   stop: () => string;
   /** True while a connection is active. */
@@ -82,6 +91,78 @@ async function fetchToken(): Promise<string> {
   return token;
 }
 
+/**
+ * Request microphone permission *eagerly*, synchronously within the user
+ * gesture that started recording — before any `await` on the network.
+ *
+ * Why this matters on Safari (desktop, iOS, and Private Browsing):
+ *   • Safari/WebKit only shows the mic permission prompt when `getUserMedia`
+ *     is reached directly from a user gesture's call stack. The Scribe client
+ *     calls `getUserMedia` internally, but only *after* we `await fetchToken()`
+ *     — by then the gesture has expired and Safari silently refuses, so the
+ *     prompt never appears and the connection dies with an opaque error.
+ *   • Calling `getUserMedia` first "primes" the permission. Once granted, the
+ *     library's later `getUserMedia` reuses it without a second prompt.
+ *   • In Safari Private Browsing the grant is per-tab and not remembered, so it
+ *     must be re-requested each session — this eager call handles that too.
+ *
+ * We immediately stop the primer stream's tracks: we only needed the grant,
+ * and Scribe opens its own stream once connected.
+ */
+async function primeMicrophonePermission(): Promise<void> {
+  // Secure context is required for getUserMedia. Safari treats some hosts
+  // (and any plain-http origin) as insecure and won't expose mediaDevices.
+  if (
+    typeof navigator === "undefined" ||
+    !navigator.mediaDevices ||
+    typeof navigator.mediaDevices.getUserMedia !== "function"
+  ) {
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      throw new Error(
+        "Microphone needs a secure connection. Open this over HTTPS (or localhost) to record.",
+      );
+    }
+    throw new Error(
+      "This browser doesn't support microphone capture. Try Safari or Chrome.",
+    );
+  }
+
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    throw new Error(describeMicError(err));
+  }
+  // Release the primer immediately; Scribe will open its own stream.
+  for (const track of stream.getTracks()) track.stop();
+}
+
+// Turn a getUserMedia rejection into an actionable, Safari-aware message.
+function describeMicError(err: unknown): string {
+  const name =
+    err instanceof DOMException || (err && typeof err === "object" && "name" in err)
+      ? String((err as { name?: unknown }).name ?? "")
+      : "";
+  switch (name) {
+    case "NotAllowedError":
+    case "SecurityError":
+      // Safari surfaces a denied/blocked prompt as NotAllowedError. On iOS the
+      // grant is also revoked when the page is backgrounded mid-prompt.
+      return "Microphone access was blocked. Allow the microphone for this site (Safari: aA menu or Settings ▸ Safari ▸ Microphone) and try again.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "No microphone was found. Check that one is connected and enabled.";
+    case "NotReadableError":
+      return "Your microphone is in use by another app. Close it and try again.";
+    case "AbortError":
+      return "Couldn't start the microphone. Try again.";
+    default:
+      return err instanceof Error && err.message
+        ? err.message
+        : "Couldn't access the microphone.";
+  }
+}
+
 export function useScribe(
   onTranscript: (text: string) => void,
   options: UseScribeOptions = {},
@@ -103,6 +184,17 @@ export function useScribe(
   const firstPauseFiredRef = useRef(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const requestPermission = useCallback(async (): Promise<boolean> => {
+    try {
+      await primeMicrophonePermission();
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return false;
+    }
+  }, []);
+
   const start = useCallback(async (seed?: string) => {
     setError(null);
     closingRef.current = false;
@@ -111,6 +203,18 @@ export function useScribe(
     committedRef.current = seed?.trim() ?? "";
     firstPauseFiredRef.current = false;
     if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+
+    // Request the mic permission FIRST, inside the user gesture that called
+    // start(), before any network await. Safari only prompts when
+    // getUserMedia is reached directly from the gesture stack; the Scribe
+    // client's own getUserMedia runs after our token fetch and would be too
+    // late. Priming here makes the prompt reliable on Safari/iOS/Private mode.
+    try {
+      await primeMicrophonePermission();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    }
 
     let token: string;
     try {
@@ -199,5 +303,5 @@ export function useScribe(
     return committedRef.current;
   }, []);
 
-  return { start, stop, active, error };
+  return { start, requestPermission, stop, active, error };
 }

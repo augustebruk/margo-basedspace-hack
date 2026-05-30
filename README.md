@@ -10,7 +10,8 @@ mentioning across entries.
 There is **no separate app backend**, but several features are backed by real
 AI through small server-side proxies (the keys stay server-side). In **dev**
 these run as Vite dev/preview middleware; in **production** the same request
-handlers run inside a tiny Node server (`server.ts`, started with `npm start`):
+handlers run inside a tiny Node server (`server.ts`, bundled to `server.js` at
+build time and started with `npm start`):
 
 - **Speech-to-text** — ElevenLabs Scribe v2 Realtime (live transcription).
 - **Text-to-speech** — ElevenLabs TTS (Margo's spoken voice during onboarding).
@@ -26,9 +27,9 @@ Requires Node 22+.
 npm install
 npm run dev                     # Vite dev server, http://localhost:5173
 npm run dev -- --host 0.0.0.0   # expose outside a container (Cloud Agent VMs)
-npm run build                   # tsc -b && vite build (the typecheck + build gate)
+npm run build                   # tsc -b && vite build && build:server (typecheck + build gate; emits dist/ + server.js)
 npm run preview                 # serve the production bundle (Vite preview)
-npm start                       # production: build first, then run server.ts (serves dist + /api/*)
+npm start                       # production: node server.js (serves dist/ + /api/*; run npm run build first)
 ```
 
 There is **no lint, formatter, or test runner configured** — `npm run build` is
@@ -94,8 +95,10 @@ npm start          # serves dist/ AND /api/* on $PORT (default 3000, host 0.0.0.
 ```
 
 `server.ts` serves the built SPA from `dist/` (with history-API fallback) and
-handles the `/api/*` routes using the **same** handlers as the Vite middleware,
-so dev and prod behave identically.
+handles the `/api/*` routes using the **same** handlers as the Vite middleware
+(imported from `vite-plugins/*`), so dev and prod behave identically. `npm run
+build` bundles it to `server.js` (esbuild, `build:server`), which `npm start`
+runs with `node`.
 
 **Environment variables** must be set in the runtime process (not just at build
 time): `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` (optional), `ANTHROPIC_API_KEY`,
