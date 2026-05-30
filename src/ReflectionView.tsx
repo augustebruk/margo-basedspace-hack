@@ -33,32 +33,28 @@ export interface ReflectionViewProps {
   onStartDailyPractice: () => void;
 }
 
-// Orb gradient (the most saturated element — the "orb material").
-const ORB_GRADIENT =
-  "linear-gradient(110deg, #ece3ff 0%, #fcdfe3 55%, #ffe9dc 100%)";
-
 // Premium, calm easing (no bounce).
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 /* -------------------------------------------------------------------------- */
-/* Waveform — soft vertical bars that gently move while the AI speaks.        */
+/* Waveform — thin black bars inside the pill. Gentle motion while speaking,  */
+/* a very subtle idle drift when calm. Purely decorative.                     */
 /* -------------------------------------------------------------------------- */
-const BAR_COUNT = 26;
+const BAR_COUNT = 16;
 
 const Waveform = ({ active }: { active: boolean }): JSX.Element => (
-  <div className="flex h-9 items-center justify-center gap-[3px]">
+  <div className="flex h-4 items-center justify-center gap-[2px]">
     {Array.from({ length: BAR_COUNT }).map((_, i) => {
-      // Smooth, organic peak heights across the bar.
-      const peak = 0.45 + 0.55 * Math.abs(Math.sin(i * 0.7 + 1));
+      const peak = 0.4 + 0.6 * Math.abs(Math.sin(i * 0.7 + 1));
       return (
         <motion.span
           key={i}
-          className="w-[3px] rounded-full bg-white/75"
-          style={{ height: 24, originY: 0.5 }}
+          className="w-[2px] rounded-full bg-[#1c2b33]"
+          style={{ height: 14, originY: 0.5 }}
           animate={
             active
-              ? { scaleY: [0.28, peak, 0.28] }
-              : { scaleY: 0.22 } // calmed / paused
+              ? { scaleY: [0.3, peak, 0.3] }
+              : { scaleY: [0.3, 0.42, 0.3] } // very subtle idle drift
           }
           transition={
             active
@@ -68,7 +64,12 @@ const Waveform = ({ active }: { active: boolean }): JSX.Element => (
                   ease: "easeInOut",
                   delay: (i % 7) * 0.07,
                 }
-              : { duration: 0.5, ease: "easeOut" }
+              : {
+                  duration: 2.6 + (i % 3) * 0.4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: (i % 5) * 0.12,
+                }
           }
         />
       );
@@ -157,16 +158,15 @@ export const ReflectionView = ({
         }}
       />
 
-      {/* ---- Voice bar (the orb, reshaped into a pill) ---- */}
-      <div className="px-5 pt-14 pb-3">
+      {/* ---- Voice bar — minimal white outlined pill with a black waveform.
+              Centered, sized just to the waveform. Decorative status only. ---- */}
+      <div className="flex justify-center px-5 pt-14 pb-5">
         <motion.div
-          // Morphs in from a small rounded shape into the wide pill, so it
-          // feels like the orb flowing up and reshaping.
-          initial={{ opacity: 0, scaleX: 0.45, scaleY: 0.85, y: -6 }}
-          animate={{ opacity: 1, scaleX: 1, scaleY: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: EASE }}
-          style={{ background: ORB_GRADIENT }}
-          className="flex h-16 w-full items-center justify-center rounded-[28px] shadow-[0_12px_34px_rgba(28,43,51,0.12)]"
+          aria-hidden="true"
+          initial={{ opacity: 0, scale: 0.82, y: -6 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: EASE }}
+          className="inline-flex h-8 items-center rounded-full border border-[#D0D4DD] bg-white px-4"
         >
           <Waveform active={aiSpeaking} />
         </motion.div>
@@ -175,7 +175,7 @@ export const ReflectionView = ({
       {/* ---- Scrollable reflection content (min-h-0 so the footer stays) ---- */}
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
         {/* Reframe — the spoken reflection, revealed sentence by sentence. */}
-        <p className="mt-2 [font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
+        <p className="[font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
           {sentences.map((s, i) =>
             i < visible ? (
               <motion.span
