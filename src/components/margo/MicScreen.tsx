@@ -5,7 +5,8 @@
  *   - The centered orb (BulbAvatar) that reacts to AI / user speaking states.
  *   - The bottom mic button + finish/next side buttons (Controls).
  *   - The live transcript area that appears once recording starts.
- *   - The OnboardingOverlay (layered above the orb during first-time flow).
+ *   - Onboarding text rendered below the orb in normal document flow.
+ *   - OnboardingOverlay for absolutely-positioned elements (firstInsight panel).
  *
  * Onboarding stage machine
  * ────────────────────────
@@ -22,9 +23,9 @@
  *   1. Voice logic → replace the demo STT `useEffect` with a real STT hook
  *      that sets `isListening`, feeds `setPersonTranscript`, and calls
  *      `onUserFinishedSpeaking` when the user stops speaking.
- *   2. Real name / thought capture → remove the [dev] buttons in
- *      OnboardingOverlay and call `handleNameCaptured` / `handleFirstThoughtCaptured`
- *      from the STT hook when audio is detected during the respective stages.
+ *   2. Real name / thought capture → call `handleNameCaptured` /
+ *      `handleFirstThoughtCaptured` from the STT hook when audio is detected
+ *      during the respective stages.
  *   3. AI messages → swap the local QUESTIONS array for a real AI call inside
  *      `aiSay()`. The function signature and call sites stay the same.
  */
@@ -102,6 +103,15 @@ function onNextPromptRequested(): void {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/* Shared text styles                                                           */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+const headingCls =
+  "[font-family:'Inter',Helvetica] font-medium text-[#1c2b33] tracking-[-0.5px] leading-[1.25] text-center";
+const subCls =
+  "[font-family:'Inter',Helvetica] font-normal text-[#1c2b33]/55 tracking-[-0.3px] leading-[1.5] text-center";
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /* Props                                                                        */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
@@ -169,11 +179,8 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
 
   // ── Onboarding callbacks ──────────────────────────────────────────────────
 
-  const handleIntroFinished = () => setOnboardingStage("askName");
-
   const handleNameCaptured = (name: string) => {
     setCapturedName(name);
-    // Brief pause so the user sees their name echoed back before advancing.
     setTimeout(() => setOnboardingStage("askFirstThought"), 900);
   };
 
@@ -263,16 +270,8 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       {/* Brand logo, anchored at the top of the screen. */}
       <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
 
-      {/* ── Onboarding overlay — layered above the orb ─────────────────────── */}
-      {onboardingActive && (
-        <OnboardingOverlay
-          stage={onboardingStage}
-          capturedName={capturedName}
-          onIntroFinished={handleIntroFinished}
-          onNameCaptured={handleNameCaptured}
-          onFirstThoughtCaptured={handleFirstThoughtCaptured}
-        />
-      )}
+      {/* firstInsight panel — absolutely positioned, rendered over the screen */}
+      {onboardingActive && <OnboardingOverlay stage={onboardingStage} />}
 
       {/* Title — visible only after onboarding and before entry starts. */}
       <AnimatePresence>
@@ -291,7 +290,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
         )}
       </AnimatePresence>
 
-      {/* ── Orb + AI question ──────────────────────────────────────────────── */}
+      {/* ── Orb ────────────────────────────────────────────────────────────── */}
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
         <div className="relative flex items-center justify-center">
           {/* Burst ring that fires on entry start. */}
@@ -300,7 +299,8 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               <motion.span
                 key={burstKey}
                 aria-hidden="true"
-                className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
+                className="absolute rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
+                style={{ width: 227, height: 227 }}
                 initial={{ opacity: 0.6, scale: 1 }}
                 animate={{ opacity: 0, scale: 1.7 }}
                 transition={{ duration: 0.7, ease: "easeOut" }}
@@ -308,24 +308,132 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
             )}
           </AnimatePresence>
 
-          <BulbAvatar state={bulbState} />
+          <BulbAvatar state={bulbState} size={227} />
         </div>
 
-        {/* AI question text — fades in/out with each new question. */}
-        <AnimatePresence mode="wait">
-          {aiSpeaking && (
-            <motion.p
-              key={currentQuestion}
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] leading-[1.3] tracking-[-0.4px]"
-            >
-              {currentQuestion}
-            </motion.p>
-          )}
-        </AnimatePresence>
+        {/* ── Below-orb text: onboarding prompts OR AI question ────────────── */}
+        <div className="flex min-h-[80px] w-full flex-col items-center justify-center px-6">
+          <AnimatePresence mode="wait">
+
+            {/* Onboarding: intro */}
+            {onboardingStage === "intro" && (
+              <motion.div
+                key="intro"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="flex flex-col items-center gap-2"
+              >
+                <p className={`${headingCls} text-[26px]`}>Hi, I&apos;m Margo.</p>
+                <p className={`${subCls} text-[16px]`}>
+                  What if your journal talked back?
+                </p>
+              </motion.div>
+            )}
+
+            {/* Onboarding: ask name */}
+            {onboardingStage === "askName" && (
+              <motion.div
+                key="askName"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="flex flex-col items-center gap-2"
+              >
+                <p className={`${headingCls} text-[20px] max-w-[280px]`}>
+                  Before we begin — what should I call you?
+                </p>
+                <AnimatePresence mode="wait">
+                  {capturedName ? (
+                    <motion.p
+                      key="name"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="[font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] tracking-[-0.6px] mt-1"
+                    >
+                      {capturedName}
+                    </motion.p>
+                  ) : (
+                    <motion.span
+                      key="hint"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className={`${subCls} text-[14px]`}
+                    >
+                      Listening for your name&hellip;
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                {import.meta.env.DEV && (
+                  <button
+                    type="button"
+                    onClick={() => handleNameCaptured("Alex")}
+                    className="mt-2 rounded-full border border-dashed border-[#1c2b33]/20 px-4 py-1.5 text-[12px] text-[#1c2b33]/40 [font-family:'Inter',Helvetica] hover:border-[#1c2b33]/40 hover:text-[#1c2b33]/60 transition-colors"
+                  >
+                    [dev] simulate name &rarr; &ldquo;Alex&rdquo;
+                  </button>
+                )}
+              </motion.div>
+            )}
+
+            {/* Onboarding: ask first thought */}
+            {onboardingStage === "askFirstThought" && (
+              <motion.div
+                key="askFirstThought"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="flex flex-col items-center gap-2"
+              >
+                {capturedName && (
+                  <p className={`${headingCls} text-[20px]`}>
+                    Nice to meet you, {capturedName}.
+                  </p>
+                )}
+                <p className={`${subCls} text-[15px] max-w-[300px]`}>
+                  Tell me one thing that&apos;s been on your mind lately.
+                  Anything. Big, small, messy. I&apos;m here to listen.
+                </p>
+                {import.meta.env.DEV && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleFirstThoughtCaptured(
+                        "I've been feeling overwhelmed at work lately.",
+                      )
+                    }
+                    className="mt-2 rounded-full border border-dashed border-[#1c2b33]/20 px-4 py-1.5 text-[12px] text-[#1c2b33]/40 [font-family:'Inter',Helvetica] hover:border-[#1c2b33]/40 hover:text-[#1c2b33]/60 transition-colors"
+                  >
+                    [dev] simulate first thought captured
+                  </button>
+                )}
+              </motion.div>
+            )}
+
+            {/* Onboarding: firstInsight — text slot is empty; panel is positioned */}
+            {onboardingStage === "firstInsight" && (
+              <motion.div key="firstInsightPlaceholder" />
+            )}
+
+            {/* Post-onboarding: AI question */}
+            {!onboardingActive && aiSpeaking && (
+              <motion.p
+                key={currentQuestion}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] leading-[1.3] tracking-[-0.4px]"
+              >
+                {currentQuestion}
+              </motion.p>
+            )}
+
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* ── Bottom block: Start Entry (idle) OR transcript + controls ───────── */}
