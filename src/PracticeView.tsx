@@ -402,10 +402,10 @@ export const PracticeView = ({
             background:
               "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
           }}
-          aria-label="Save practice"
+          aria-label="Save practice for tonight"
         >
           <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px]">
-            Save practice
+            Save practice for tonight
           </span>
         </button>
 
@@ -413,9 +413,9 @@ export const PracticeView = ({
           type="button"
           onClick={onBackHome}
           className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-          aria-label="Back to home"
+          aria-label="Save & return"
         >
-          Back to home
+          Save & return
         </button>
       </div>
     </motion.div>

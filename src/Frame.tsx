@@ -76,6 +76,19 @@ export const Frame = (): JSX.Element => {
   const aiSpeaking = bulbState === "aiSpeaking";
   const personSpeaking = bulbState === "personSpeaking";
 
+  // When the user's in-progress input grows long, the transcript/textarea
+  // block below starts to crowd the orb. Gently lift the centered orb stack
+  // up the screen to make room — more lift as the input keeps growing.
+  const inputLength = personSpeaking ? personTranscript.length : 0;
+  const orbLift =
+    inputLength <= 120
+      ? 0
+      : inputLength <= 240
+        ? -40
+        : inputLength <= 400
+          ? -80
+          : -120;
+
 
   // ===================================================================
   // PLUG IN REAL AI HERE
@@ -389,8 +402,14 @@ export const Frame = (): JSX.Element => {
                 )}
               </AnimatePresence>
 
-              {/* Bulb + AI question stack, vertically centered. */}
-              <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
+              {/* Bulb + AI question stack, vertically centered. Gently lifts
+                  up the screen as the user's input grows, so a long transcript
+                  doesn't crowd the orb. */}
+              <motion.div
+                animate={{ y: orbLift }}
+                transition={{ type: "spring", stiffness: 120, damping: 22 }}
+                className="flex w-full flex-1 flex-col items-center justify-center gap-9"
+              >
                 <div className="relative flex flex-col items-center justify-center gap-7">
                   <div className="relative flex items-center justify-center">
                     <AnimatePresence>
@@ -472,7 +491,7 @@ export const Frame = (): JSX.Element => {
                     </motion.p>
                   )}
                 </AnimatePresence>
-              </div>
+              </motion.div>
 
               {/* Bottom block: transcript + controls (started). */}
               <div className="flex w-full flex-col items-center">

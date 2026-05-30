@@ -176,33 +176,6 @@ export const EntryDetailView = ({
           <Stat value={entry.wordCount.toLocaleString()} label="Words" />
         </motion.div>
 
-        {/* Transcribed conversation. */}
-        <motion.section variants={item} className="mt-7 flex flex-col gap-3">
-          <SectionTitle>Transcript</SectionTitle>
-          {turns.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {turns.map((turn, i) => (
-                <div key={i} className="flex flex-col gap-1.5">
-                  {turn.question && (
-                    <p className="[font-family:'Inter',Helvetica] text-[14px] font-medium leading-[20px] text-[#a07ee0]">
-                      {turn.question}
-                    </p>
-                  )}
-                  {turn.answer && (
-                    <p className="rounded-[16px] bg-white/70 px-4 py-3 [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[23px] text-[#1c2b33]">
-                      {turn.answer}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/50">
-              No transcript was captured for this session.
-            </p>
-          )}
-        </motion.section>
-
         {/* Reflection — the spoken reframe. */}
         {reflection.summary && (
           <motion.section variants={item} className="mt-8 flex flex-col gap-3">
@@ -270,6 +243,33 @@ export const EntryDetailView = ({
             </ul>
           </motion.section>
         )}
+
+        {/* Transcribed conversation. */}
+        <motion.section variants={item} className="mt-8 flex flex-col gap-3">
+          <SectionTitle>Transcript</SectionTitle>
+          {turns.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {turns.map((turn, i) => (
+                <div key={i} className="flex flex-col gap-1.5">
+                  {turn.question && (
+                    <p className="[font-family:'Inter',Helvetica] text-[14px] font-medium leading-[20px] text-[#a07ee0]">
+                      {turn.question}
+                    </p>
+                  )}
+                  {turn.answer && (
+                    <p className="rounded-[16px] bg-white/70 px-4 py-3 [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[23px] text-[#1c2b33]">
+                      {turn.answer}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/50">
+              No transcript was captured for this session.
+            </p>
+          )}
+        </motion.section>
 
         {/* Delete this entry. Two-tap confirm so it isn't triggered by accident. */}
         <motion.section variants={item} className="mt-10 flex flex-col gap-2.5">
