@@ -4,6 +4,7 @@ import { BulbAvatar, type BulbState } from "./BulbAvatar";
 import { Controls } from "./Controls";
 import { MargoLogo } from "./MargoLogo";
 import { ReflectionView, type ReflectionViewProps } from "./ReflectionView";
+import { PracticeView } from "./PracticeView";
 
 const legalLinks = [
   { label: "Terms of Service", href: "#terms" },
@@ -56,15 +57,11 @@ function onNextPrompt(): void {
   // TODO: ask the AI for the next question/prompt.
   console.log("[AI] next prompt requested");
 }
-function onStartDailyPractice(): void {
-  // TODO: navigate to the practice experience built from the next steps.
-  console.log("[practice] start daily practice");
-}
 
-type Phase = "entry" | "reflection";
+type Phase = "entry" | "reflection" | "practice";
 
 export const Frame = (): JSX.Element => {
-  // Which screen we're on. "entry" = journaling, "reflection" = summary screen.
+  // Which screen we're on: journaling → reflection summary → practice.
   const [phase, setPhase] = useState<Phase>("entry");
 
   // --- Entry conversation state machine -------------------------------
@@ -135,6 +132,26 @@ export const Frame = (): JSX.Element => {
     onFinishEntry();
     setReflectionSpeaking(true);
     setPhase("reflection");
+  };
+
+  // Reflection CTA → the practice experience (third step).
+  const handleStartDailyPractice = () => {
+    // TODO: build the real practice from the next steps.
+    console.log("[practice] start daily practice");
+    setReflectionSpeaking(false);
+    setPhase("practice");
+  };
+
+  // Back to home → reset the whole flow to the idle entry screen.
+  const handleBackHome = () => {
+    // TODO: connect to real navigation. For now, reset to the start.
+    console.log("[nav] back to home");
+    setIsRecording(false);
+    setReflectionSpeaking(false);
+    setPersonTranscript("");
+    questionIndex.current = 0;
+    setBulbState("idle");
+    setPhase("entry");
   };
 
   // DEMO ONLY: simulate live speech-to-text while recording. Remove once a
@@ -306,7 +323,7 @@ export const Frame = (): JSX.Element => {
                 </AnimatePresence>
               </div>
             </motion.div>
-          ) : (
+          ) : phase === "reflection" ? (
             <ReflectionView
               key="reflection"
               summary={REFLECTION.summary}
@@ -314,8 +331,10 @@ export const Frame = (): JSX.Element => {
               nextSteps={REFLECTION.nextSteps}
               aiSpeaking={reflectionSpeaking}
               onSummaryComplete={() => setReflectionSpeaking(false)}
-              onStartDailyPractice={onStartDailyPractice}
+              onStartDailyPractice={handleStartDailyPractice}
             />
+          ) : (
+            <PracticeView key="practice" onBackHome={handleBackHome} />
           )}
         </AnimatePresence>
       </section>
