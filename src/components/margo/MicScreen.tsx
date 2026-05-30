@@ -5,34 +5,27 @@
  *   - The centered orb (BulbAvatar) that reacts to AI / user speaking states.
  *   - The bottom mic button + finish/next side buttons (Controls).
  *   - The live transcript area that appears once recording starts.
- *   - Placeholders for the onboarding overlay and insight overlays.
+ *   - The OnboardingOverlay (layered above the orb during first-time flow).
  *
- * State overview
- * ──────────────
- *   onboardingStage  Controls which onboarding step is active (if any).
- *                    'idle'        → brand-new user, onboarding not yet shown.
- *                    'intro'       → "Hi, I'm Margo" greeting step.
- *                    'name'        → Ask the user their name.
- *                    'firstThought'→ Ask for their first free-form thought.
- *                    'done'        → Onboarding complete; regular entry flow.
+ * Onboarding stage machine
+ * ────────────────────────
+ *   'intro'          → "Hi, I'm Margo" (auto-advances after 3 s)
+ *   'askName'        → collect the user's name via voice
+ *   'askFirstThought'→ ask for a free-form opening thought via voice
+ *   'firstInsight'   → show the first mirror moment panel
+ *   'done'           → onboarding complete; regular entry flow active
  *
- *   isListening      True while the mic is actively capturing audio. Drive
- *                    this from a real STT hook when voice logic is wired in.
+ * DEV shortcut: press `d` to step through stages one at a time.
  *
  * Plugging in the next steps
  * ──────────────────────────
- *   1. Onboarding overlay  → render it conditionally on `onboardingStage`
- *      inside the TODO block below the orb. Drive stage transitions with
- *      `setOnboardingStage`. When stage reaches 'done', regular entry starts.
- *
- *   2. Insight / mockup overlays → render on top of the orb container via
- *      absolute positioning inside the TODO block for overlays.
- *
- *   3. Voice logic → replace the demo STT `useEffect` with a real hook that
- *      sets `isListening`, feeds `setPersonTranscript`, and calls
+ *   1. Voice logic → replace the demo STT `useEffect` with a real STT hook
+ *      that sets `isListening`, feeds `setPersonTranscript`, and calls
  *      `onUserFinishedSpeaking` when the user stops speaking.
- *
- *   4. AI messages → swap the local QUESTIONS array for a real AI call inside
+ *   2. Real name / thought capture → remove the [dev] buttons in
+ *      OnboardingOverlay and call `handleNameCaptured` / `handleFirstThoughtCaptured`
+ *      from the STT hook when audio is detected during the respective stages.
+ *   3. AI messages → swap the local QUESTIONS array for a real AI call inside
  *      `aiSay()`. The function signature and call sites stay the same.
  */
 
@@ -41,24 +34,25 @@ import { AnimatePresence, motion } from "motion/react";
 import { BulbAvatar, type BulbState } from "../../BulbAvatar";
 import { Controls } from "../../Controls";
 import { MargoLogo } from "../../MargoLogo";
+import { OnboardingOverlay } from "./OnboardingOverlay";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* Onboarding stage type                                                       */
+/* Onboarding stage type                                                        */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 /**
  * Describes which step of the first-time onboarding flow is active.
- * 'idle'  → user is new but onboarding hasn't been triggered yet.
- * 'intro' → "Hi, I'm Margo" greeting.
- * 'name'  → collect the user's name.
- * 'firstThought' → ask for a free-form opening thought.
- * 'done'  → onboarding is complete; drop into normal entry flow.
+ * 'intro'          → "Hi, I'm Margo" greeting (auto-advances after 3 s).
+ * 'askName'        → collect the user's name.
+ * 'askFirstThought'→ ask for a free-form opening thought.
+ * 'firstInsight'   → show the first mirror moment panel.
+ * 'done'           → onboarding complete; drop into normal entry flow.
  */
 export type OnboardingStage =
-  | "idle"
   | "intro"
-  | "name"
-  | "firstThought"
+  | "askName"
+  | "askFirstThought"
+  | "firstInsight"
   | "done";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -70,6 +64,18 @@ const QUESTIONS = [
   "What do you think triggered that?",
   "Is there anything you'd do differently?",
   "What would you tell a friend in your situation?",
+];
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Ordered onboarding stage sequence (for the dev keyboard shortcut)           */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+const STAGE_ORDER: OnboardingStage[] = [
+  "intro",
+  "askName",
+  "askFirstThought",
+  "firstInsight",
+  "done",
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -114,19 +120,17 @@ interface MicScreenProps {
 export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
   // ── Onboarding state ──────────────────────────────────────────────────────
   /**
-   * Which onboarding step is currently active.
-   * TODO: initialise from user preferences / backend (e.g. skip when the user
-   * has already completed onboarding in a previous session).
+   * Active onboarding stage. Starts at 'intro' for all new sessions.
+   * TODO: skip to 'done' if the user has already completed onboarding
+   * (check a persisted flag from backend / localStorage).
    */
   const [onboardingStage, setOnboardingStage] =
-    useState<OnboardingStage>("idle");
+    useState<OnboardingStage>("intro");
+
+  /** Name captured during the 'askName' stage. */
+  const [capturedName, setCapturedName] = useState("");
 
   // ── Voice / recording state ───────────────────────────────────────────────
-  /**
-   * Whether the mic is actively capturing audio.
-   * TODO: drive this from a real STT hook (e.g. Web Speech API, Whisper
-   * streaming, etc.) — replace the demo `useEffect` simulation below.
-   */
   const [isListening, setIsListening] = useState(false);
 
   // ── Conversation / orb state ──────────────────────────────────────────────
@@ -140,22 +144,51 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
   const aiSpeaking = bulbState === "aiSpeaking";
   const personSpeaking = bulbState === "personSpeaking";
 
+  // ── Onboarding: auto-advance 'intro' → 'askName' after 3 s ───────────────
+  useEffect(() => {
+    if (onboardingStage !== "intro") return;
+    const t = setTimeout(() => setOnboardingStage("askName"), 3000);
+    return () => clearTimeout(t);
+  }, [onboardingStage]);
+
+  // ── DEV ONLY: press `d` to step through stages ───────────────────────────
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "d") return;
+      setOnboardingStage((current) => {
+        const idx = STAGE_ORDER.indexOf(current);
+        return idx < STAGE_ORDER.length - 1
+          ? STAGE_ORDER[idx + 1]
+          : current;
+      });
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // ── Onboarding callbacks ──────────────────────────────────────────────────
+
+  const handleIntroFinished = () => setOnboardingStage("askName");
+
+  const handleNameCaptured = (name: string) => {
+    setCapturedName(name);
+    // Brief pause so the user sees their name echoed back before advancing.
+    setTimeout(() => setOnboardingStage("askFirstThought"), 900);
+  };
+
+  const handleFirstThoughtCaptured = (transcript: string) => {
+    console.log("[onboarding] first thought:", transcript);
+    setOnboardingStage("firstInsight");
+  };
+
   // ── AI helpers ────────────────────────────────────────────────────────────
-  /**
-   * Make the AI "say" a question — update the displayed question and switch
-   * the orb to its speaking state.
-   * TODO: swap the local question string with a real AI-generated message.
-   */
   const aiSay = useCallback((question: string) => {
     setCurrentQuestion(question);
     setPersonTranscript("");
     setBulbState("aiSpeaking");
   }, []);
 
-  /**
-   * Put the orb into listening state.
-   * TODO: also start the real STT stream here.
-   */
   const listen = useCallback(() => {
     setBulbState("personSpeaking");
   }, []);
@@ -171,10 +204,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
     questionIndex.current = 0;
     setBurstKey((k) => k + 1);
     aiSay(QUESTIONS[0]);
-
-    // TODO: if onboardingStage === 'idle', begin the onboarding flow here
-    // instead of jumping straight to the first journal question.
-    // e.g. setOnboardingStage('intro');
   };
 
   const handleMicToggle = () => {
@@ -198,13 +227,12 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
 
   const handleFinishEntry = () => {
     if (isListening) setIsListening(false);
-    // Notify the parent so it can transition to loading → reflection.
     onEntryComplete();
   };
 
   // ── Demo STT simulation ───────────────────────────────────────────────────
   // DEMO ONLY: simulates a live speech-to-text stream while `isListening`.
-  // Remove this effect and replace with a real STT hook when voice is wired in.
+  // Replace with a real STT hook when voice is wired in.
   useEffect(() => {
     if (!isListening) return;
     const words =
@@ -222,6 +250,9 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
   }, [isListening]);
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  const onboardingActive = onboardingStage !== "done";
+
   return (
     <motion.div
       key="entry"
@@ -232,30 +263,25 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       {/* Brand logo, anchored at the top of the screen. */}
       <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
 
-      {/* ─── TODO: Onboarding overlay ────────────────────────────────────────
-       * Render the onboarding steps here, conditionally on `onboardingStage`.
-       * Each step should be a <motion.div> that animates in/out with
-       * AnimatePresence. Advance stages with `setOnboardingStage(...)`.
-       *
-       * Example:
-       *   {onboardingStage === 'intro' && (
-       *     <OnboardingIntro onNext={() => setOnboardingStage('name')} />
-       *   )}
-       *   {onboardingStage === 'name' && (
-       *     <OnboardingName onNext={() => setOnboardingStage('firstThought')} />
-       *   )}
-       *   {onboardingStage === 'firstThought' && (
-       *     <OnboardingFirstThought onDone={() => setOnboardingStage('done')} />
-       *   )}
-       * ─────────────────────────────────────────────────────────────────── */}
+      {/* ── Onboarding overlay — layered above the orb ─────────────────────── */}
+      {onboardingActive && (
+        <OnboardingOverlay
+          stage={onboardingStage}
+          capturedName={capturedName}
+          onIntroFinished={handleIntroFinished}
+          onNameCaptured={handleNameCaptured}
+          onFirstThoughtCaptured={handleFirstThoughtCaptured}
+        />
+      )}
 
-      {/* Title — fades out once the entry starts. */}
+      {/* Title — visible only after onboarding and before entry starts. */}
       <AnimatePresence>
-        {!started && (
+        {!onboardingActive && !started && (
           <motion.h1
             key="title"
             id="activate-agent-title"
-            initial={false}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
             className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.25] whitespace-nowrap pb-px"
@@ -265,7 +291,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
         )}
       </AnimatePresence>
 
-      {/* ─── Orb + AI question + overlay container ─────────────────────────── */}
+      {/* ── Orb + AI question ──────────────────────────────────────────────── */}
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
         <div className="relative flex items-center justify-center">
           {/* Burst ring that fires on entry start. */}
@@ -283,22 +309,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
           </AnimatePresence>
 
           <BulbAvatar state={bulbState} />
-
-          {/* ─── TODO: Insight / mockup overlays ─────────────────────────────
-           * Render floating insight cards or visual mockups on top of the orb
-           * here, using absolute positioning relative to this container.
-           *
-           * Example:
-           *   {activeInsight && (
-           *     <motion.div
-           *       className="absolute -top-4 right-0 ..."
-           *       initial={{ opacity: 0, y: 8 }}
-           *       animate={{ opacity: 1, y: 0 }}
-           *     >
-           *       <InsightCard insight={activeInsight} />
-           *     </motion.div>
-           *   )}
-           * ────────────────────────────────────────────────────────────────── */}
         </div>
 
         {/* AI question text — fades in/out with each new question. */}
@@ -318,7 +328,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
         </AnimatePresence>
       </div>
 
-      {/* ─── Bottom block: Start Entry (idle) OR transcript + controls ──────── */}
+      {/* ── Bottom block: Start Entry (idle) OR transcript + controls ───────── */}
       <div className="flex w-full flex-col items-center">
         <AnimatePresence mode="wait">
           {!started ? (
@@ -328,16 +338,27 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               transition={{ duration: 0.5, ease: "easeIn" }}
               className="flex w-full flex-col items-center gap-[60px]"
             >
-              <button
-                type="button"
-                onClick={handleStartEntry}
-                className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-                aria-label="Start Entry"
-              >
-                <span className="relative [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
-                  Start Entry
-                </span>
-              </button>
+              {/* Hide the Start Entry button until onboarding is complete. */}
+              <AnimatePresence>
+                {!onboardingActive && (
+                  <motion.button
+                    key="startBtn"
+                    type="button"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    onClick={handleStartEntry}
+                    className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+                    aria-label="Start Entry"
+                  >
+                    <span className="relative [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
+                      Start Entry
+                    </span>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
               <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
                 <span className="text-[#1c2b33b8] tracking-[-0.05px]">
                   By tapping &apos;Start Entry&apos; and using our app,
