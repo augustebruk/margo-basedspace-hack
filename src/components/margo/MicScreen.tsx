@@ -15,7 +15,6 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BulbAvatar, type BulbState } from "../../BulbAvatar";
-import { Controls } from "../../Controls";
 import { MargoLogo } from "../../MargoLogo";
 import { OnboardingOverlay } from "./OnboardingOverlay";
 import { useSpeechToText } from "../../hooks/useSpeechToText";
@@ -592,12 +591,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                 </AnimatePresence>
               </div>
 
-              <Controls
-                isRecording={entryListening}
-                onMicToggle={handleMicToggle}
-                onFinish={handleFinishEntry}
-                onNext={handleNextPrompt}
-              />
             </motion.div>
           )}
         </AnimatePresence>
