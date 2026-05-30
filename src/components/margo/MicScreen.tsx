@@ -548,25 +548,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               className="flex w-full flex-col items-center gap-7"
             >
               <div className="flex min-h-[64px] w-full items-end justify-center px-2">
-                <AnimatePresence mode="wait">
-                  {personSpeaking && (
-                    <motion.div
-                      key="transcript"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.35, ease: "easeOut" }}
-                      className="flex w-full flex-col items-center gap-2"
-                    >
-                      <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
-                        Your turn
-                      </span>
-                      <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55">
-                        {personTranscript || "Listening\u2026"}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
 
             </motion.div>
