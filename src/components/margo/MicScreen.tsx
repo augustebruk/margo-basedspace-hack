@@ -422,18 +422,16 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                     >
                       {userName}
                     </motion.p>
-                  ) : (
+                  ) : !onboardingListening ? (
                     <motion.span
                       key="hint"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className={`${subCls} text-[14px] mt-1`}
                     >
-                      {onboardingListening
-                        ? onboardingTranscript || "Listening\u2026"
-                        : "Getting mic ready\u2026"}
+                      Getting mic ready…
                     </motion.span>
-                  )}
+                  ) : null}
                 </AnimatePresence>
                 {import.meta.env.DEV && (
                   <button
@@ -480,14 +478,14 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                     >
                       {retryMessage}
                     </motion.span>
-                  ) : onboardingListening ? (
+                  ) : !onboardingListening ? (
                     <motion.span
-                      key="live"
+                      key="hint"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className={`${subCls} text-[14px] mt-1 max-w-[300px]`}
+                      className={`${subCls} text-[14px] mt-1`}
                     >
-                      {onboardingTranscript || "Listening\u2026"}
+                      Getting mic ready…
                     </motion.span>
                   ) : null}
                 </AnimatePresence>
