@@ -311,7 +311,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
 
       {/* firstInsight bottom panel — absolutely positioned */}
-      {onboardingActive && (
+      {onboardingActive && onboardingStage === "firstInsight" && (
         <OnboardingOverlay
           stage={onboardingStage}
           transcript={firstThoughtTranscript ?? undefined}
