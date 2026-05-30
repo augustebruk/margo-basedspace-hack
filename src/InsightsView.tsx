@@ -128,18 +128,29 @@ export const InsightsView = ({
     [data.entries],
   );
 
-  const { insights, generating, resultKey, generate } = useInsights();
+  // The exact payload sent to the AI endpoint for this range. Memoized so it
+  // doubles as the cache key + the seed for `useInsights` (flash-free remount).
+  const digest = useMemo(
+    () => (data.entryCount > 0 ? buildInsightsDigest(data.entries) : ""),
+    [data.entries, data.entryCount],
+  );
+
+  // Seed the hook from the module cache so returning to a range whose narrative
+  // was already generated this session paints it on the first frame.
+  const { insights, generating, resultKey, generate } = useInsights(
+    digest ? { digest, name, key: range } : undefined,
+  );
 
   // (Re)generate the AI period reflection whenever the range (and thus the set
   // of in-range entries) changes. `useInsights` is guarded by a request id so a
-  // slower earlier range can't clobber a newer one. We tag each result with the
-  // range so the view can tell a fresh narrative for the *current* range apart
-  // from a stale one left over from the previous range.
+  // slower earlier range can't clobber a newer one, caches results so revisited
+  // ranges are instant, and we tag each result with the range so the view can
+  // tell a fresh narrative for the *current* range from a stale leftover.
   useEffect(() => {
-    if (data.entryCount === 0) return;
-    void generate(buildInsightsDigest(data.entries), name, range);
+    if (!digest) return;
+    void generate(digest, name, range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, data.entryCount]);
+  }, [range, digest]);
 
   const hasEntries = data.entryCount > 0;
   // Only show the narrative (real or fallback) once we have a *finished* result

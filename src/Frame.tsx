@@ -329,8 +329,8 @@ export const Frame = (): JSX.Element => {
   }, [isRecording, startScribe, stopScribe]);
 
   return (
-    <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-[#f3f3f3] p-4">
-      <section className="relative flex h-[844px] w-[390px] shrink-0 flex-col overflow-hidden rounded-[44px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
+    <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-white p-0 sm:bg-[#f3f3f3] sm:p-4">
+      <section className="relative flex h-dvh w-full shrink-0 flex-col overflow-hidden rounded-none bg-white shadow-none sm:h-[844px] sm:max-h-[calc(100dvh-2rem)] sm:w-[390px] sm:rounded-[44px] sm:shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
         <AnimatePresence mode="wait">
           {phase === "onboarding" ? (
             <Onboarding
@@ -356,7 +356,7 @@ export const Frame = (): JSX.Element => {
               // the voice bar on the next screen.
               exit={{ opacity: 0, y: -60, scale: 0.92 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="relative flex h-full w-full flex-col items-center px-6 pt-[118px] pb-[40px]"
+              className="relative flex h-full w-full flex-col items-center px-6 pt-[88px] pb-[max(40px,env(safe-area-inset-bottom))] sm:pt-[118px]"
             >
               {/* Brand logo, anchored at the top of the entry screen. */}
               <MargoLogo

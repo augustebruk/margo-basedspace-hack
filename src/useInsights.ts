@@ -31,6 +31,37 @@ export const MOCK_INSIGHTS: Insights = {
   question: "What's one thing you'd like to feel differently about next time?",
 };
 
+/**
+ * Module-level cache of generated narratives, keyed by the exact request
+ * payload (digest + name). Lives outside the hook so a result survives:
+ *  - switching ranges within the Insights screen, and
+ *  - navigating away from Insights and back (the hook remounts but the cache
+ *    persists for the page session).
+ * Because the key encodes the in-range entries' content, adding a new entry
+ * naturally produces a new key and regenerates; old keys simply go unused.
+ */
+const NARRATIVE_CACHE = new Map<
+  string,
+  { insights: Insights; usedFallback: boolean }
+>();
+
+function cacheKey(digest: string, name?: string): string {
+  return `${name ?? ""}::${digest}`;
+}
+
+/**
+ * Synchronous read of the cache for a payload, if present. Lets the view seed
+ * the hook's initial state so a cached narrative renders on the very first
+ * frame after remounting (no skeleton flash when returning to Insights).
+ */
+export function peekInsights(
+  digest: string,
+  name?: string,
+): { insights: Insights; usedFallback: boolean } | undefined {
+  if (!digest.trim()) return undefined;
+  return NARRATIVE_CACHE.get(cacheKey(digest, name));
+}
+
 interface UseInsightsResult {
   insights: Insights;
   generating: boolean;
@@ -49,22 +80,45 @@ interface UseInsightsResult {
    * fails. Guarded by a request id so a slower earlier range can't overwrite a
    * newer one when the user switches ranges quickly. `key` tags the result
    * (pass the range) so the view knows which selection it corresponds to.
+   *
+   * Results are cached (module-level, keyed by digest+name) so revisiting a
+   * range — or leaving the Insights screen and coming back — shows the existing
+   * narrative instantly with no refetch and no flash of the loading skeleton.
    */
   generate: (digest: string, name?: string, key?: string) => Promise<void>;
 }
 
-export function useInsights(): UseInsightsResult {
-  const [insights, setInsights] = useState<Insights>(MOCK_INSIGHTS);
+/**
+ * Optional seed so the hook can initialize from the module cache on mount —
+ * used by the view to avoid a skeleton flash when returning to a range whose
+ * narrative was already generated earlier this session.
+ */
+export interface UseInsightsSeed {
+  digest: string;
+  name?: string;
+  /** The range/key this seed corresponds to (mirrors `resultKey`). */
+  key: string;
+}
+
+export function useInsights(seed?: UseInsightsSeed): UseInsightsResult {
+  const cachedSeed = seed ? peekInsights(seed.digest, seed.name) : undefined;
+
+  const [insights, setInsights] = useState<Insights>(
+    cachedSeed?.insights ?? MOCK_INSIGHTS,
+  );
   const [generating, setGenerating] = useState(false);
-  const [usedFallback, setUsedFallback] = useState(true);
-  const [resultKey, setResultKey] = useState<string | null>(null);
+  const [usedFallback, setUsedFallback] = useState(
+    cachedSeed?.usedFallback ?? true,
+  );
+  const [resultKey, setResultKey] = useState<string | null>(
+    cachedSeed ? (seed?.key ?? null) : null,
+  );
   const requestId = useRef(0);
 
   const generate = useCallback(
     async (digest: string, name?: string, key?: string) => {
       const id = ++requestId.current;
       const tag = key ?? null;
-      setGenerating(true);
 
       const settle = (next: Insights, fallback: boolean) => {
         if (id !== requestId.current) return;
@@ -73,11 +127,34 @@ export function useInsights(): UseInsightsResult {
         setResultKey(tag);
       };
 
+      // Serve a previously-generated narrative for this exact payload instantly,
+      // without a network call or a loading skeleton.
+      if (digest.trim()) {
+        const cached = NARRATIVE_CACHE.get(cacheKey(digest, name));
+        if (cached) {
+          setGenerating(false);
+          settle(cached.insights, cached.usedFallback);
+          return;
+        }
+      }
+
+      setGenerating(true);
+
       if (!digest.trim()) {
         settle(MOCK_INSIGHTS, true);
         if (id === requestId.current) setGenerating(false);
         return;
       }
+
+      const remember = (next: Insights, fallback: boolean) => {
+        // Only cache real successes; fallbacks may be transient (e.g. a network
+        // blip or a momentarily-missing key) and are worth retrying next visit.
+        if (!fallback) NARRATIVE_CACHE.set(cacheKey(digest, name), {
+          insights: next,
+          usedFallback: fallback,
+        });
+        settle(next, fallback);
+      };
 
       try {
         const res = await fetch(INSIGHTS_ENDPOINT, {
@@ -87,14 +164,14 @@ export function useInsights(): UseInsightsResult {
         });
 
         if (!res.ok) {
-          settle(MOCK_INSIGHTS, true);
+          remember(MOCK_INSIGHTS, true);
           return;
         }
 
         const data = (await res.json()) as Insights;
-        settle(data, false); // no-op if superseded
+        remember(data, false); // no-op if superseded
       } catch {
-        settle(MOCK_INSIGHTS, true);
+        remember(MOCK_INSIGHTS, true);
       } finally {
         if (id === requestId.current) setGenerating(false);
       }
