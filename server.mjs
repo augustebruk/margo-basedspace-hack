@@ -97,6 +97,13 @@ wss.on("connection", async (browserWs) => {
 
     console.log(`[${sessionId}] Gemini session connected`);
 
+    // Notify browser that connection is established
+    browserWs.send(
+      JSON.stringify({
+        type: "connected",
+      })
+    );
+
     // Handle browser messages
     browserWs.on("message", (data) => {
       try {

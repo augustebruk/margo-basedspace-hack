@@ -79,6 +79,11 @@ export const LiveVoiceAgent = ({
     onTranscript?.(currentTranscript);
   }, [currentTranscript, onTranscript]);
 
+  // Log connection state for debugging
+  useEffect(() => {
+    console.log("[LiveVoiceAgent] isConnected:", isConnected);
+  }, [isConnected]);
+
   // Connect to backend WebSocket
   const connect = useCallback(() => {
     setError(null);
@@ -97,7 +102,10 @@ export const LiveVoiceAgent = ({
         try {
           const msg = JSON.parse(event.data);
 
-          if (msg.type === "text" && msg.text) {
+          if (msg.type === "connected") {
+            console.log("[LiveVoiceAgent] Backend connection confirmed");
+            setIsConnected(true);
+          } else if (msg.type === "text" && msg.text) {
             console.log("[LiveVoiceAgent] AI text:", msg.text);
             setCurrentTranscript(msg.text);
             onQuestion?.(msg.text);
@@ -135,7 +143,7 @@ export const LiveVoiceAgent = ({
       console.error("[LiveVoiceAgent] Connection failed:", err.message);
       setError(err.message);
     }
-  }, [onQuestion]);
+  }, []);
 
   // Disconnect from backend WebSocket
   const disconnect = useCallback(() => {
