@@ -5,11 +5,16 @@ import { Controls } from "./Controls";
 import { MargoLogo } from "./MargoLogo";
 import { ReflectionView, type ReflectionViewProps } from "./ReflectionView";
 import { PracticeView } from "./PracticeView";
+import { LiveVoiceAgent } from "./LiveVoiceAgent";
 
 const legalLinks = [
   { label: "Terms of Service", href: "#terms" },
   { label: "Privacy Policy", href: "#privacy" },
 ];
+
+// Set VITE_ENABLE_LIVE=true (and run `npm run server` with a GEMINI_API_KEY) to
+// replace the demo controls with the real Gemini Live voice agent.
+const LIVE_ENABLED = import.meta.env.VITE_ENABLE_LIVE === "true";
 
 // Demo question bank. The AI always opens with the first one. Replace these
 // (or drive them from the backend via `aiSay()`) with real AI messages.
@@ -134,6 +139,17 @@ export const Frame = (): JSX.Element => {
     setPhase("loading");
   };
 
+  // --- Gemini Live wiring: drive the same bulb/question/transcript state. ---
+  const handleLiveAiSpeaking = useCallback((speaking: boolean) => {
+    if (speaking) setBulbState("aiSpeaking");
+  }, []);
+  const handleLivePersonSpeaking = useCallback((speaking: boolean) => {
+    if (speaking) {
+      setBulbState("personSpeaking");
+      setPersonTranscript("");
+    }
+  }, []);
+
   // After the loading screen, move into the reflection with the AI speaking.
   useEffect(() => {
     if (phase !== "loading") return;
@@ -181,6 +197,29 @@ export const Frame = (): JSX.Element => {
     }, 180);
     return () => clearInterval(id);
   }, [isRecording]);
+
+  // Small reusable transcript block (used by both the demo and live modes).
+  const transcriptBlock = (
+    <AnimatePresence mode="wait">
+      {personSpeaking && (
+        <motion.div
+          key="transcript"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="flex w-full flex-col items-center gap-2"
+        >
+          <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
+            Your turn
+          </span>
+          <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55">
+            {personTranscript || "Listening…"}
+          </p>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   return (
     <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-[#f3f3f3] p-4">
@@ -234,88 +273,84 @@ export const Frame = (): JSX.Element => {
                 </AnimatePresence>
               </div>
 
-              {/* Bottom block: Start Entry (idle) OR transcript + controls. */}
+              {/* Bottom block. Live mode → Gemini agent; otherwise the demo. */}
               <div className="flex w-full flex-col items-center">
-                <AnimatePresence mode="wait">
-                  {!started ? (
-                    <motion.div
-                      key="start"
-                      exit={{ opacity: 0, y: 28 }}
-                      transition={{ duration: 0.5, ease: "easeIn" }}
-                      className="flex w-full flex-col items-center gap-[60px]"
-                    >
-                      <button
-                        type="button"
-                        onClick={handleStartEntry}
-                        className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-                        aria-label="Start Entry"
+                {LIVE_ENABLED ? (
+                  <div className="flex w-full flex-col items-center gap-5">
+                    <div className="flex min-h-[40px] w-full items-end justify-center px-2">
+                      {transcriptBlock}
+                    </div>
+                    <LiveVoiceAgent
+                      onAiSpeakingChange={handleLiveAiSpeaking}
+                      onPersonSpeakingChange={handleLivePersonSpeaking}
+                      onQuestion={setCurrentQuestion}
+                      onTranscript={setPersonTranscript}
+                    />
+                  </div>
+                ) : (
+                  <AnimatePresence mode="wait">
+                    {!started ? (
+                      <motion.div
+                        key="start"
+                        exit={{ opacity: 0, y: 28 }}
+                        transition={{ duration: 0.5, ease: "easeIn" }}
+                        className="flex w-full flex-col items-center gap-[60px]"
                       >
-                        <span className="relative [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
-                          Start Entry
-                        </span>
-                      </button>
-                      <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
-                        <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                          By tapping &apos;Start Entry&apos; and using our app,
-                          you&apos;re agreeing to our{" "}
-                        </span>
-                        <a
-                          href={legalLinks[0].href}
-                          className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
+                        <button
+                          type="button"
+                          onClick={handleStartEntry}
+                          className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+                          aria-label="Start Entry"
                         >
-                          {legalLinks[0].label}
-                        </a>
-                        <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                          {" "}
-                          and{" "}
-                        </span>
-                        <a
-                          href={legalLinks[1].href}
-                          className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
-                        >
-                          {legalLinks[1].label}
-                        </a>
-                      </p>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="live"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                      className="flex w-full flex-col items-center gap-7"
-                    >
-                      <div className="flex min-h-[64px] w-full items-end justify-center px-2">
-                        <AnimatePresence mode="wait">
-                          {personSpeaking && (
-                            <motion.div
-                              key="transcript"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 8 }}
-                              transition={{ duration: 0.35, ease: "easeOut" }}
-                              className="flex w-full flex-col items-center gap-2"
-                            >
-                              <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
-                                Your turn
-                              </span>
-                              <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55">
-                                {personTranscript || "Listening…"}
-                              </p>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
+                          <span className="relative [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
+                            Start Entry
+                          </span>
+                        </button>
+                        <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
+                          <span className="text-[#1c2b33b8] tracking-[-0.05px]">
+                            By tapping &apos;Start Entry&apos; and using our app,
+                            you&apos;re agreeing to our{" "}
+                          </span>
+                          <a
+                            href={legalLinks[0].href}
+                            className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
+                          >
+                            {legalLinks[0].label}
+                          </a>
+                          <span className="text-[#1c2b33b8] tracking-[-0.05px]">
+                            {" "}
+                            and{" "}
+                          </span>
+                          <a
+                            href={legalLinks[1].href}
+                            className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
+                          >
+                            {legalLinks[1].label}
+                          </a>
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="live"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className="flex w-full flex-col items-center gap-7"
+                      >
+                        <div className="flex min-h-[64px] w-full items-end justify-center px-2">
+                          {transcriptBlock}
+                        </div>
 
-                      <Controls
-                        isRecording={isRecording}
-                        onMicToggle={handleMicToggle}
-                        onFinish={handleFinishEntry}
-                        onNext={handleNextPrompt}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                        <Controls
+                          isRecording={isRecording}
+                          onMicToggle={handleMicToggle}
+                          onFinish={handleFinishEntry}
+                          onNext={handleNextPrompt}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                )}
               </div>
             </motion.div>
           ) : phase === "loading" ? (
