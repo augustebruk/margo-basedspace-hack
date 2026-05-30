@@ -58,10 +58,13 @@ function onNextPrompt(): void {
   console.log("[AI] next prompt requested");
 }
 
-type Phase = "entry" | "reflection" | "practice";
+type Phase = "entry" | "loading" | "reflection" | "practice";
+
+// How long the white "preparing" loading screen shows before the reflection.
+const LOADING_MS = 1900;
 
 export const Frame = (): JSX.Element => {
-  // Which screen we're on: journaling → reflection summary → practice.
+  // Which screen we're on: journaling → loading → reflection → practice.
   const [phase, setPhase] = useState<Phase>("entry");
 
   // --- Entry conversation state machine -------------------------------
@@ -125,14 +128,23 @@ export const Frame = (): JSX.Element => {
     aiSay(nextQuestion());
   };
 
-  // Finish entry → stop recording, run the orb→voice-bar transition, and move
-  // into the reflection phase with the AI "speaking" the summary.
+  // Finish entry → stop recording and show the white "preparing" loading
+  // screen while the reflection is generated.
   const handleFinishEntry = () => {
     if (isRecording) setIsRecording(false);
     onFinishEntry();
-    setReflectionSpeaking(true);
-    setPhase("reflection");
+    setPhase("loading");
   };
+
+  // After the loading screen, move into the reflection with the AI speaking.
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const t = setTimeout(() => {
+      setReflectionSpeaking(true);
+      setPhase("reflection");
+    }, LOADING_MS);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   // Reflection CTA → the practice experience (third step).
   const handleStartDailyPractice = () => {
@@ -321,6 +333,34 @@ export const Frame = (): JSX.Element => {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+            </motion.div>
+          ) : phase === "loading" ? (
+            // White "preparing" loading screen with an animated icon.
+            <motion.div
+              key="loading"
+              role="status"
+              aria-live="polite"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="flex h-full w-full flex-col items-center justify-center gap-6 bg-white px-8 text-center"
+            >
+              {/* Animated loading icon — a soft pastel spinner. */}
+              <motion.span
+                aria-hidden="true"
+                className="h-10 w-10 rounded-full border-[3px] border-[#ece3ff] border-t-[#c7a6f5]"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+              />
+              <div className="flex flex-col gap-2">
+                <p className="[font-family:'Inter',Helvetica] text-[24px] font-medium tracking-[-0.4px] text-[#1c2b33]">
+                  Wrapping up your entry…
+                </p>
+                <p className="[font-family:'Inter',Helvetica] text-[15px] font-normal text-[#1c2b33]/55">
+                  Preparing your summary &amp; practice.
+                </p>
               </div>
             </motion.div>
           ) : phase === "reflection" ? (
