@@ -30,7 +30,7 @@ import {
  * ==========================================================================*/
 export type GraphNodeType = "emotion" | "topic" | "person";
 
-type Pt = { x: number; y: number };
+export type Pt = { x: number; y: number };
 
 export interface GraphNode {
   id: string;

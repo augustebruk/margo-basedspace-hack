@@ -8,20 +8,18 @@ import { PracticeView } from "./PracticeView";
 import { useScribe } from "./useScribe";
 import { useReflection } from "./useReflection";
 import { useFollowup } from "./useFollowup";
+import { usePractice } from "./usePractice";
 import { Onboarding } from "./Onboarding";
 import { useOnboarding } from "./useOnboarding";
 import { useEntries, countWords } from "./useEntries";
 import { HistoryView } from "./HistoryView";
 import { EntryDetailView } from "./EntryDetailView";
-import { BottomNav, type NavTab } from "./BottomNav";
+import { type NavTab } from "./BottomNav";
 
 // The journaling entry always opens with this fixed prompt. The remaining
 // prompts are generated live by the AI from the conversation (see `useFollowup`).
+// The conversation is endless — it only ends when the user taps finish.
 const OPENING_QUESTION = "How was your day?";
-
-// Total prompts in an entry: the fixed opener + this many AI-generated
-// follow-ups. After the last follow-up's answer, the entry wraps up.
-const FOLLOWUP_COUNT = 3;
 
 type Phase =
   | "onboarding"
@@ -55,8 +53,12 @@ export const Frame = (): JSX.Element => {
   // True while the user has switched to keyboard input for the current turn.
   const [isTyping, setIsTyping] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
+  // True once the user has started talking at least once this session. Used to
+  // show the one-time "Tap to speak" hint only on the very first question and
+  // never again afterward.
+  const [hasEverSpoken, setHasEverSpoken] = useState(false);
   // How many prompts the user has answered so far (opener counts as the first
-  // prompt). When this reaches FOLLOWUP_COUNT + 1, the entry is out of prompts.
+  // prompt). Used as the follow-up step index when generating questions.
   const promptCount = useRef(0);
 
   // Reflection screen: true while the AI "reads" the summary (drives the wave).
@@ -71,6 +73,7 @@ export const Frame = (): JSX.Element => {
   const started = bulbState !== "idle";
   const aiSpeaking = bulbState === "aiSpeaking";
   const personSpeaking = bulbState === "personSpeaking";
+
 
   // ===================================================================
   // PLUG IN REAL AI HERE
@@ -93,6 +96,9 @@ export const Frame = (): JSX.Element => {
   const transcriptLog = useRef<string[]>([]);
   const { reflection, generate: generateReflection } = useReflection();
   const { next: generateFollowup } = useFollowup();
+  // Tonight's personalized, therapy-grounded practice, generated from the same
+  // transcript as the reflection (in parallel, during the loading screen).
+  const { practice, generate: generatePractice } = usePractice();
 
   // Record a completed turn (the question the AI asked + what the user said).
   const recordTurn = useCallback((question: string, answer: string) => {
@@ -114,22 +120,14 @@ export const Frame = (): JSX.Element => {
   // ===================================================================
 
   // Advance the conversation after the user finishes a turn: record it, then
-  // either ask the next AI-generated follow-up (built from the conversation so
-  // far) or, once the prompt cap is reached, wrap up the entry.
-  const finishEntryRef = useRef<(alreadyRecorded?: boolean) => void>(() => {});
-
+  // ask the next AI-generated follow-up (built from the conversation so far).
+  // The entry only wraps up when the user taps the finish button.
   const advanceConversation = useCallback(() => {
     recordTurn(currentQuestion, personTranscript);
     setIsRecording(false);
 
-    // promptCount counts answered prompts (opener included). Once we've asked
-    // the opener + all follow-ups, there are no more prompts → finish.
-    if (promptCount.current >= FOLLOWUP_COUNT) {
-      // Turn already recorded above; finish without re-recording it.
-      finishEntryRef.current(true);
-      return;
-    }
-
+    // The conversation is endless: each "next" generates another AI follow-up.
+    // The entry only ends when the user taps the finish (check mark) button.
     const step = promptCount.current - 1; // 0-based index of this follow-up
     promptCount.current += 1;
 
@@ -157,6 +155,7 @@ export const Frame = (): JSX.Element => {
     promptCount.current = 1; // the opener is the first prompt
     transcriptLog.current = [];
     entryStartedAt.current = Date.now();
+    setHasEverSpoken(false);
     setBurstKey((k) => k + 1);
     aiSay(OPENING_QUESTION);
   };
@@ -172,6 +171,7 @@ export const Frame = (): JSX.Element => {
       // kept; new speech is appended to it via the scribe seed.
       setIsTyping(false);
       setIsRecording(true);
+      setHasEverSpoken(true);
       listen();
     }
   };
@@ -187,6 +187,7 @@ export const Frame = (): JSX.Element => {
       // user types first (before ever starting the mic on this prompt).
       setIsRecording(false);
       setIsTyping(true);
+      setHasEverSpoken(true);
       listen();
     }
   };
@@ -213,6 +214,10 @@ export const Frame = (): JSX.Element => {
 
     const minDelay = new Promise<void>((r) => setTimeout(r, LOADING_MS));
     const generation = generateReflection(transcript);
+    // Generate tonight's practice from the same transcript, in parallel. It's
+    // not on the critical path to the reflection screen — by the time the user
+    // taps "Start daily practice" it's typically ready (falls back otherwise).
+    if (transcript.trim()) void generatePractice(transcript, name);
     void Promise.all([minDelay, generation]).then(([, generated]) => {
       // Persist the finished session so it appears in the History tab.
       if (transcript.trim() && generated.summary) {
@@ -230,19 +235,18 @@ export const Frame = (): JSX.Element => {
   }, [
     addEntry,
     currentQuestion,
+    generatePractice,
     generateReflection,
     isRecording,
+    name,
     personTranscript,
     recordTurn,
   ]);
 
-  // Keep the ref in sync so advanceConversation can finish without a cycle.
-  finishEntryRef.current = handleFinishEntry;
-
-  // Reflection CTA → the practice experience (third step).
+  // Reflection CTA → the practice experience (third step). The practice was
+  // already generated in parallel during the loading screen (see
+  // handleFinishEntry); here we just transition to it.
   const handleStartDailyPractice = () => {
-    // TODO: build the real practice from the next steps.
-    console.log("[practice] start daily practice");
     setReflectionSpeaking(false);
     setPhase("practice");
   };
@@ -253,6 +257,7 @@ export const Frame = (): JSX.Element => {
     console.log("[nav] back to home");
     setIsRecording(false);
     setIsTyping(false);
+    setHasEverSpoken(false);
     setReflectionSpeaking(false);
     setPersonTranscript("");
     transcriptLog.current = [];
@@ -287,15 +292,9 @@ export const Frame = (): JSX.Element => {
   const selectedEntry =
     entries.find((entry) => entry.id === selectedEntryId) ?? null;
 
-  // The bottom nav is shown only on the two main tabs (not onboarding,
-  // loading, the reflection, the practice, or the entry detail) — and it hides
-  // once a journaling entry is actually in progress so it stays out of the way.
-  const navTab: NavTab | null =
-    phase === "entry" && !started
-      ? "journal"
-      : phase === "history"
-        ? "history"
-        : null;
+  // The bottom nav is shown only on the history tab now — the home/entry
+  // screen uses a minimal bare history icon instead of the full tab bar.
+  const navTab: NavTab | null = phase === "history" ? "history" : null;
 
   // Live speech-to-text via ElevenLabs Scribe. Start a streaming session when
   // recording begins and tear it down when it stops. `useScribe` feeds results
@@ -354,16 +353,25 @@ export const Frame = (): JSX.Element => {
               {/* Title fades out and unmounts once the entry starts. */}
               <AnimatePresence>
                 {!started && (
-                  <motion.h1
+                  <motion.div
                     key="title"
-                    id="activate-agent-title"
                     initial={false}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.25] whitespace-nowrap pb-px"
+                    className="flex flex-col items-center gap-2"
                   >
-                    {name ? `Welcome back, ${name}` : "Activate Agent"}
-                  </motion.h1>
+                    <h1
+                      id="activate-agent-title"
+                      className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.2] whitespace-nowrap pb-px"
+                    >
+                      {name ? "Welcome back, Sara" : "Activate Agent"}
+                    </h1>
+                    <p className="max-w-[280px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[21px] text-[#1c2b33]/50">
+                      {name
+                        ? "Ready to think out loud?"
+                        : "Your space to think out loud."}
+                    </p>
+                  </motion.div>
                 )}
               </AnimatePresence>
 
@@ -384,7 +392,9 @@ export const Frame = (): JSX.Element => {
                       )}
                     </AnimatePresence>
 
-                    {/* Idle: the whole orb is the tap-to-begin affordance. */}
+                    {/* Idle: the whole orb is the tap-to-begin affordance.
+                        Once started, tapping the orb toggles the mic on/off —
+                        identical to the mic button in the controls. */}
                     {!started ? (
                       <button
                         type="button"
@@ -395,28 +405,36 @@ export const Frame = (): JSX.Element => {
                         <BulbAvatar state={bulbState} />
                       </button>
                     ) : (
-                      <BulbAvatar state={bulbState} />
+                      <button
+                        type="button"
+                        onClick={handleMicToggle}
+                        aria-label={isRecording ? "Tap to pause" : "Tap to speak"}
+                        aria-pressed={isRecording}
+                        className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
+                      >
+                        <BulbAvatar state={bulbState} />
+                      </button>
                     )}
                   </div>
 
-                  {/* Minimal tap-to-begin caption (replaces the pill button). */}
+                  {/* "Tap to speak" hint under the orb. Shown on the intro
+                      screen (tap to begin) and on the opening question until
+                      the user first starts talking — then gone for the
+                      session. */}
                   <AnimatePresence>
-                    {!started && (
+                    {(!started ||
+                      (aiSpeaking &&
+                        !hasEverSpoken &&
+                        currentQuestion === OPENING_QUESTION)) && (
                       <motion.span
-                        key="tap-to-begin"
-                        initial={false}
+                        key="tap-to-speak"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -6 }}
-                        animate={{ opacity: [0.45, 0.9, 0.45] }}
-                        transition={{
-                          opacity: {
-                            duration: 3.2,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                          },
-                        }}
-                        className="[font-family:'Inter',Helvetica] text-[13px] font-medium uppercase tracking-[3px] text-[#1c2b33]/40 select-none"
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="pointer-events-none [font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40"
                       >
-                        Tap to begin
+                        Tap to speak
                       </motion.span>
                     )}
                   </AnimatePresence>
@@ -442,28 +460,10 @@ export const Frame = (): JSX.Element => {
                 </AnimatePresence>
               </div>
 
-              {/* Bottom block: Start Entry (idle) OR transcript + controls. */}
+              {/* Bottom block: transcript + controls (started). */}
               <div className="flex w-full flex-col items-center">
                 <AnimatePresence mode="wait">
-                  {!started ? (
-                    <motion.div
-                      key="start"
-                      exit={{ opacity: 0, y: 28 }}
-                      transition={{ duration: 0.5, ease: "easeIn" }}
-                      className="flex w-full flex-col items-center gap-[60px]"
-                    >
-                      <button
-                        type="button"
-                        onClick={handleStartEntry}
-                        className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-                        aria-label="Start Entry"
-                      >
-                        <span className="relative [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
-                          Start Entry
-                        </span>
-                      </button>
-                    </motion.div>
-                  ) : (
+                  {started && (
                     <motion.div
                       key="live"
                       initial={{ opacity: 0, y: 20 }}
@@ -533,6 +533,42 @@ export const Frame = (): JSX.Element => {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Minimal history affordance: a bare icon in the bottom-right
+                  corner (replaces the bottom tab bar on the home screen). */}
+              <AnimatePresence>
+                {!started && (
+                  <motion.button
+                    key="history-fab"
+                    type="button"
+                    onClick={() => {
+                      setSelectedEntryId(null);
+                      setPhase("history");
+                    }}
+                    aria-label="History"
+                    initial={false}
+                    exit={{ opacity: 0 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="all-[unset] absolute right-7 bottom-8 box-border flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1c2b33]/40 transition-colors hover:text-[#1c2b33]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      stroke="currentColor"
+                      strokeWidth={1.7}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 12a9 9 0 1 0 3-6.7" />
+                      <path d="M3 4v4h4" />
+                      <path d="M12 8v4l2.5 2.5" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : phase === "loading" ? (
             // White "preparing" loading screen with an animated icon.
@@ -573,7 +609,11 @@ export const Frame = (): JSX.Element => {
               onStartDailyPractice={handleStartDailyPractice}
             />
           ) : phase === "practice" ? (
-            <PracticeView key="practice" onBackHome={handleBackHome} />
+            <PracticeView
+              key="practice"
+              practice={practice}
+              onBackHome={handleBackHome}
+            />
           ) : phase === "history" ? (
             <HistoryView
               key="history"
@@ -599,7 +639,7 @@ export const Frame = (): JSX.Element => {
           )}
         </AnimatePresence>
 
-        {/* Persistent bottom navigation, shown only on the two main tabs. */}
+        {/* Sticky Home pill on the history tab — gradient matches the orb. */}
         <AnimatePresence>
           {navTab && (
             <motion.div
@@ -608,8 +648,37 @@ export const Frame = (): JSX.Element => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 16 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             >
-              <BottomNav active={navTab} onSelect={handleSelectTab} />
+              <motion.button
+                type="button"
+                onClick={() => handleSelectTab("journal")}
+                aria-label="Home"
+                whileTap={{ scale: 0.96 }}
+                className="all-[unset] pointer-events-auto box-border flex h-12 cursor-pointer items-center gap-2 rounded-full px-6 text-white shadow-[0_14px_34px_rgba(199,166,245,0.45)] transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5]"
+                style={{
+                  background:
+                    "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
+                }}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  stroke="currentColor"
+                  strokeWidth={1.9}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 10.5 12 3l9 7.5" />
+                  <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
+                </svg>
+                <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px]">
+                  Home
+                </span>
+              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>

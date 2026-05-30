@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { BulbAvatar } from "./BulbAvatar";
 import { MargoLogo } from "./MargoLogo";
 import { InsightCard } from "./InsightCard";
-import { EntryGraph, type GraphNode, type GraphLink } from "./EntryGraph";
+import { EntryGraph, type GraphNode, type GraphLink, type Pt } from "./EntryGraph";
 import { useScribe } from "./useScribe";
 import { useMargoVoice } from "./useMargoVoice";
 import { useInsight, type Insight } from "./useInsight";
@@ -486,15 +486,7 @@ const EntranceStep = ({
       <BulbAvatar state={unlocked ? "aiSpeaking" : "idle"} />
 
       <div className="flex min-h-[88px] flex-col items-center gap-2.5 text-center">
-        {!unlocked ? (
-          <motion.span
-            animate={{ opacity: [0.4, 0.85, 0.4] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            className="[font-family:'Inter',Helvetica] text-[15px] font-medium uppercase tracking-[2px] text-[#1c2b33]/45"
-          >
-            Tap to begin
-          </motion.span>
-        ) : (
+        {unlocked &&
           ENTRANCE_LINES.map((line, i) =>
             i < revealed ? (
               <motion.p
@@ -511,8 +503,7 @@ const EntranceStep = ({
                 {line}
               </motion.p>
             ) : null,
-          )
-        )}
+          )}
       </div>
     </motion.button>
   );
@@ -986,7 +977,7 @@ const InvitationStep = ({
           transition={{ duration: 0.7, ease: EASE, delay: 0.2 }}
           className="overflow-hidden rounded-[24px] bg-white/80 p-2 shadow-[0_12px_36px_rgba(28,43,51,0.07)]"
         >
-          <EntryGraph nodes={nodes} links={links} height={220} />
+          <EntryGraph nodes={nodes} links={links} title="First entry" height={220} />
         </motion.div>
       </div>
 

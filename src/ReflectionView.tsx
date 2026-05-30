@@ -26,8 +26,8 @@ export interface ReflectionViewProps {
   summary: string;
   patterns: ReflectionPattern[];
   nextSteps: string[];
-  /** True while the AI is "speaking" — drives the voice-bar waveform. */
-  aiSpeaking: boolean;
+  /** @deprecated No longer used — the voice bar/waveform was removed. */
+  aiSpeaking?: boolean;
   /** Called once the summary has fully revealed (parent calms the wave). */
   onSummaryComplete?: () => void;
   /** Main CTA — wire to the real practice experience later. */
@@ -36,47 +36,6 @@ export interface ReflectionViewProps {
 
 // Premium, calm easing (no bounce).
 const EASE = [0.22, 1, 0.36, 1] as const;
-
-/* -------------------------------------------------------------------------- */
-/* Waveform — thin black bars inside the pill. Gentle motion while speaking,  */
-/* a very subtle idle drift when calm. Purely decorative.                     */
-/* -------------------------------------------------------------------------- */
-const BAR_COUNT = 20;
-
-const Waveform = ({ active }: { active: boolean }): JSX.Element => (
-  <div className="flex h-6 items-center justify-center gap-[3px]">
-    {Array.from({ length: BAR_COUNT }).map((_, i) => {
-      const peak = 0.4 + 0.6 * Math.abs(Math.sin(i * 0.7 + 1));
-      return (
-        <motion.span
-          key={i}
-          className="w-[3px] rounded-full bg-[#1c2b33]"
-          style={{ height: 24, originY: 0.5 }}
-          animate={
-            active
-              ? { scaleY: [0.3, peak, 0.3] }
-              : { scaleY: [0.3, 0.42, 0.3] } // very subtle idle drift
-          }
-          transition={
-            active
-              ? {
-                  duration: 0.9 + (i % 5) * 0.14,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: (i % 7) * 0.07,
-                }
-              : {
-                  duration: 2.6 + (i % 3) * 0.4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: (i % 5) * 0.12,
-                }
-          }
-        />
-      );
-    })}
-  </div>
-);
 
 /* -------------------------------------------------------------------------- */
 /* Section stagger variants — content "flows down" after the summary.         */
@@ -103,7 +62,6 @@ export const ReflectionView = ({
   summary,
   patterns,
   nextSteps,
-  aiSpeaking,
   onSummaryComplete,
   onStartDailyPractice,
 }: ReflectionViewProps): JSX.Element => {
@@ -159,22 +117,8 @@ export const ReflectionView = ({
         }}
       />
 
-      {/* ---- Voice bar — minimal white outlined pill with a black waveform.
-              Centered, sized just to the waveform. Decorative status only. ---- */}
-      <div className="flex justify-center px-5 pt-14 pb-5">
-        <motion.div
-          aria-hidden="true"
-          initial={{ opacity: 0, scale: 0.82, y: -6 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: EASE }}
-          className="inline-flex h-12 items-center rounded-full border border-[#D0D4DD] bg-white px-6"
-        >
-          <Waveform active={aiSpeaking} />
-        </motion.div>
-      </div>
-
       {/* ---- Scrollable reflection content (min-h-0 so the footer stays) ---- */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-14 pb-6">
         {/* Reframe — the spoken reflection, revealed sentence by sentence. */}
         <p className="[font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
           {sentences.map((s, i) =>
@@ -246,7 +190,7 @@ export const ReflectionView = ({
       </div>
 
       {/* ---- Primary CTA — appears after the content has loaded ---- */}
-      <div className="px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className="flex justify-center px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <AnimatePresence>
           {contentRevealed && (
             <motion.button
@@ -255,18 +199,15 @@ export const ReflectionView = ({
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: EASE, delay: 0.35 }}
-              whileTap={{
-                scale: 0.97,
-                boxShadow: "0 6px 16px rgba(199,166,245,0.30)",
-              }}
-              className="all-[unset] box-border flex h-14 w-full cursor-pointer items-center justify-center rounded-full shadow-[0_14px_34px_rgba(199,166,245,0.45)]"
+              whileTap={{ scale: 0.96 }}
+              className="all-[unset] box-border flex h-12 cursor-pointer items-center gap-2 rounded-full px-6 text-white shadow-[0_14px_34px_rgba(199,166,245,0.45)] transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5]"
               style={{
                 background:
                   "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
               }}
               aria-label="Start daily practice"
             >
-              <span className="[font-family:'Inter',Helvetica] text-[16px] font-semibold tracking-[-0.2px] text-white">
+              <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px] text-white">
                 Start daily practice
               </span>
             </motion.button>

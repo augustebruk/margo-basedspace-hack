@@ -156,7 +156,7 @@ export const EntryDetailView = ({
               {turns.map((turn, i) => (
                 <div key={i} className="flex flex-col gap-1.5">
                   {turn.question && (
-                    <p className="[font-family:'Inter',Helvetica] text-[14px] font-medium leading-[20px] text-[#1c2b33]/65">
+                    <p className="[font-family:'Inter',Helvetica] text-[14px] font-medium leading-[20px] text-[#a07ee0]">
                       {turn.question}
                     </p>
                   )}
@@ -209,7 +209,7 @@ export const EntryDetailView = ({
           )}
 
           <div className="mt-1 overflow-hidden rounded-[20px] bg-white p-1.5 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
-            <EntryGraph height={240} />
+            <EntryGraph title={`${formatDay(entry.createdAt)}'s entry`} height={240} />
           </div>
         </motion.section>
 

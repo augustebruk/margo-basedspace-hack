@@ -10,16 +10,19 @@ import type { IncomingMessage, ServerResponse } from "node:http";
  * browser. In production, replace this with a real serverless route at the same
  * path (`POST /api/reflection`).
  *
- * Request body:  { transcript: string, mode?: "reflection" | "insight" | "followup", name?: string }
+ * Request body:  { transcript: string, mode?: "reflection" | "insight" | "followup" | "practice", name?: string }
  * Response body (reflection): { summary: string, patterns: {label, recurrenceLabel?}[], nextSteps: string[] }
  * Response body (insight):    { transitionLine, coreQuestion, summaryLine, triggers: string[], margoQuestion, highlightPhrases: string[] }
  * Response body (followup):   { question: string }
+ * Response body (practice):   see the Practice type below (a personalized, therapy-grounded daily practice)
  */
 const REFLECTION_PATH = "/api/reflection";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = 1024;
+// The practice payload is richer (several guided steps), so it gets more room.
+const PRACTICE_MAX_TOKENS = 2048;
 
 const MARGO_PERSONA = `You are Margo, a voice-first AI journaling companion. People talk to you about their lives: relationships, work, self-doubt, family, and everyday chaos.
 
@@ -94,6 +97,57 @@ Return STRICT JSON matching this TypeScript type, and nothing else:
   "question": string
 }`;
 
+/**
+ * Personalized daily practice. After an entry finishes, we build ONE small,
+ * doable evening practice tailored to what the person actually said, grounded
+ * in established, evidence-based therapeutic modalities:
+ *
+ *  - CBT cognitive restructuring (Beck / Burns) — thought records: name the
+ *    automatic thought, weigh the evidence, build a balanced reframe.
+ *  - ACT psychological flexibility (Steven Hayes) — cognitive defusion
+ *    ("I'm having the thought that…"), values clarification, and committed
+ *    (values-aligned) action.
+ *  - DBT skills (Marsha Linehan) — Check the Facts, Opposite Action, and
+ *    distress-tolerance / paced breathing for high-arousal moments.
+ *  - Self-compassion (Kristin Neff) + Compassion-Focused Therapy (Paul
+ *    Gilbert) — the three components: mindfulness, common humanity,
+ *    self-kindness; the "talk to yourself like a good friend" reframe.
+ *  - Behavioral activation — one tiny, concrete, scheduled action.
+ *
+ * The model PICKS the single most-fitting modality for what the person said
+ * (it does not dump all of them), then shapes the steps around it.
+ */
+const PRACTICE_SYSTEM_PROMPT = `${MARGO_PERSONA}
+
+The person just finished a journal entry. Design ONE short, doable evening practice (5-10 minutes) tailored SPECIFICALLY to what they said. This is the "do something with it" step after reflecting — it must feel personal, never generic.
+
+You are well-read in evidence-based psychology. Silently choose the SINGLE modality that best fits what they're struggling with, then shape the practice around it. Do not name-drop the modality in a clinical way or lecture; weave it in naturally. The modalities you draw from:
+- CBT thought records (Beck/Burns): surface the automatic thought, weigh evidence for/against, build a balanced reframe. Best for harsh self-talk, catastrophizing, all-or-nothing thinking.
+- ACT (Hayes): cognitive defusion ("I'm having the thought that…"), values clarification, and one committed values-aligned action. Best for being fused/stuck on a thought, avoidance, or feeling disconnected from what matters.
+- DBT (Linehan): Check the Facts, Opposite Action, paced breathing / distress tolerance. Best for intense, fast emotions, urges, or overwhelm.
+- Self-compassion (Neff) + CFT (Gilbert): mindfulness of the pain, common humanity, self-kindness — "what would you say to a friend?" Best for shame, guilt, self-criticism, perfectionism.
+- Behavioral activation: one tiny scheduled action. Best for low mood, withdrawal, "I can't be bothered".
+
+Return STRICT JSON matching this TypeScript type, and nothing else:
+{
+  "title": string,            // a short, warm title for tonight's practice, 2-5 words, Title Case, no period. Specific to them, e.g. "Softening the Inner Critic" or "Naming the Real Fear".
+  "intro": string,            // 1-2 short sentences in Margo's voice introducing why THIS practice, tonight, for them. Speak directly to "you". Reference the actual thing they said. At most one small, warm joke.
+  "approachLabel": string,    // a tiny, friendly name for the technique (NOT clinical jargon), 2-4 words, e.g. "Talk to yourself like a friend", "Unhook from the thought", "Check the facts".
+  "focusPrompt": string,      // the question for Step 1's single-choice. Short. e.g. "What's really driving this tonight?"
+  "options": string[],        // 3-4 single-choice options for Step 1, written in first person ("I…"), each capturing a distinct, plausible read of what they said. The LAST one should be an open "Something else" style option. Specific to their entry, not generic.
+  "deepenLabel": string,      // Step 2 label — the invitation to write. e.g. "Write a little more" or "Put the real thing into words".
+  "deepenPrompt": string,     // the main open writing prompt for Step 2, tuned to the chosen modality (e.g. a defusion prompt, a thought-record prompt, or a self-compassion "what would you tell a friend" prompt). One pointed sentence, second person.
+  "deepenFollowups": string[],// 2-3 short optional "write more about X" nudges the UI shows as chips to expand on (e.g. "What evidence actually supports that thought?", "Where do you feel it in your body?", "What's underneath the anger?"). Each is a short phrase or question.
+  "skill": {                  // Step 3 — one tiny in-the-moment skill grounded in the chosen modality.
+    "name": string,           // 2-4 words, e.g. "Name the thought", "One slow breath", "Opposite action".
+    "instruction": string     // 1-2 short sentences telling them exactly what to do right now. Concrete, body-level, doable in under a minute.
+  },
+  "actions": string[],        // Step 4 — 3 tiny, concrete, values-aligned committed actions they could take before tomorrow. No platitudes. Specific to their entry. Each starts with a verb.
+  "closingLine": string       // one short, warm line Margo leaves them with. Grounded, not cheesy. e.g. "Tiny is enough. That's the whole point."
+}
+
+Be specific to what they actually said. Never invent facts. Never diagnose. Never claim to be a therapist. Keep it human, warm, and non-clinical. If they mentioned self-harm or severe distress, make the practice gentle and grounding (paced breathing, reaching out to a trusted person) and let the closingLine gently point to human support.`;
+
 interface ReflectionPattern {
   label: string;
   recurrenceLabel?: string;
@@ -112,6 +166,24 @@ interface Insight {
   triggers: string[];
   margoQuestion: string;
   highlightPhrases: string[];
+}
+
+interface PracticeSkill {
+  name: string;
+  instruction: string;
+}
+interface Practice {
+  title: string;
+  intro: string;
+  approachLabel: string;
+  focusPrompt: string;
+  options: string[];
+  deepenLabel: string;
+  deepenPrompt: string;
+  deepenFollowups: string[];
+  skill: PracticeSkill;
+  actions: string[];
+  closingLine: string;
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -223,11 +295,63 @@ function normalizeFollowup(raw: unknown): { question: string } | null {
   return { question };
 }
 
+/** Validate + coerce the model's parsed JSON into a well-formed Practice. */
+function normalizePractice(raw: unknown): Practice | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+  const intro = str(obj.intro);
+  const deepenPrompt = str(obj.deepenPrompt);
+  // The intro + the main writing prompt are the heart of the practice; if
+  // either is missing the payload isn't usable.
+  if (!intro || !deepenPrompt) return null;
+
+  const skillRaw =
+    obj.skill && typeof obj.skill === "object"
+      ? (obj.skill as Record<string, unknown>)
+      : {};
+  const skill: PracticeSkill = {
+    name: str(skillRaw.name) || "One slow breath",
+    instruction:
+      str(skillRaw.instruction) ||
+      "Take one slow breath. Notice your feet on the floor. You're here.",
+  };
+
+  const options = strArray(obj.options, 4);
+  const actions = strArray(obj.actions, 3);
+
+  return {
+    title: str(obj.title) || "Tonight's Practice",
+    intro,
+    approachLabel: str(obj.approachLabel) || "A small experiment",
+    focusPrompt: str(obj.focusPrompt) || "What feels most true tonight?",
+    options:
+      options.length >= 2
+        ? options
+        : [
+            "I'm carrying more than I let on",
+            "I'm being hard on myself",
+            "Something else is going on",
+          ],
+    deepenLabel: str(obj.deepenLabel) || "Put it into words",
+    deepenPrompt,
+    deepenFollowups: strArray(obj.deepenFollowups, 3),
+    skill,
+    actions:
+      actions.length >= 1
+        ? actions
+        : ["Take three slow breaths before bed."],
+    closingLine: str(obj.closingLine) || "Tiny is enough. That's the point.",
+  };
+}
+
 /** Call Claude with a system prompt + user content; returns the text block. */
 async function callClaude(
   apiKey: string,
   systemPrompt: string,
   userContent: string,
+  maxTokens: number = MAX_TOKENS,
 ): Promise<{ ok: true; text: string } | { ok: false; status: number; detail: string }> {
   const response = await fetch(ANTHROPIC_URL, {
     method: "POST",
@@ -238,7 +362,7 @@ async function callClaude(
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokens,
       temperature: 0.7,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
@@ -277,7 +401,7 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
     }
 
     let transcript = "";
-    let mode: "reflection" | "insight" | "followup" = "reflection";
+    let mode: "reflection" | "insight" | "followup" | "practice" = "reflection";
     let name = "";
     try {
       const body = await readBody(req);
@@ -289,6 +413,7 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
       transcript = parsed.transcript ?? "";
       if (parsed.mode === "insight") mode = "insight";
       else if (parsed.mode === "followup") mode = "followup";
+      else if (parsed.mode === "practice") mode = "practice";
       name = (parsed.name ?? "").trim();
     } catch {
       sendJson(res, 400, { error: "Invalid JSON body" });
@@ -343,6 +468,34 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
           return;
         }
         sendJson(res, 200, followup);
+        return;
+      }
+
+      if (mode === "practice") {
+        const userContent = `${
+          name ? `The person's name is ${name}. ` : ""
+        }Here is the transcript of their journal entry:\n\n${transcript}\n\nDesign tonight's personalized practice. Respond with ONLY the JSON object, no prose or markdown fences.`;
+
+        const result = await callClaude(
+          apiKey,
+          PRACTICE_SYSTEM_PROMPT,
+          userContent,
+          PRACTICE_MAX_TOKENS,
+        );
+        if (!result.ok) {
+          sendJson(res, result.status, {
+            error: "Practice generation failed",
+            detail: result.detail,
+          });
+          return;
+        }
+
+        const practice = normalizePractice(parseModelJson(result.text));
+        if (!practice) {
+          sendJson(res, 502, { error: "Model returned malformed practice" });
+          return;
+        }
+        sendJson(res, 200, practice);
         return;
       }
 

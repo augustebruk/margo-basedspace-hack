@@ -11,6 +11,11 @@ const MOCK_FOLLOWUPS = [
   "What stood out most about that?",
   "How did that leave you feeling?",
   "Is there anything underneath that you haven't said yet?",
+  "What's on your mind right now?",
+  "Where do you feel that in your body?",
+  "What would you tell a friend in this situation?",
+  "Is there something you've been avoiding saying?",
+  "What do you need most tonight?",
 ];
 
 interface UseFollowupResult {
@@ -31,8 +36,11 @@ export function useFollowup(): UseFollowupResult {
   const next = useCallback(
     async (transcript: string, step: number, name?: string): Promise<string> => {
       const id = ++requestId.current;
+      // Cycle through the pool (wrap, don't clamp) so repeatedly tapping "next"
+      // without saying anything keeps surfacing a *different* prompt.
       const fallback =
-        MOCK_FOLLOWUPS[Math.min(step, MOCK_FOLLOWUPS.length - 1)];
+        MOCK_FOLLOWUPS[((step % MOCK_FOLLOWUPS.length) + MOCK_FOLLOWUPS.length) %
+          MOCK_FOLLOWUPS.length];
 
       if (!transcript.trim()) return fallback;
 

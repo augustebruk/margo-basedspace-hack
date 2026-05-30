@@ -49,6 +49,26 @@ interface UseScribeOptions {
   pauseDebounceMs?: number;
 }
 
+// The Scribe client emits the generic ERROR event with several different
+// payload shapes: a structured `{ error: string }` message, a JS `Error`
+// (unexpected close / parse failure), or a bare DOM `Event` (WebSocket error,
+// which carries no message at all). Pull out the most useful string from any
+// of them so we never surface a contentless "Scribe error".
+function describeScribeError(data: unknown): string | null {
+  if (!data) return null;
+  if (typeof data === "string") return data;
+  if (data instanceof Error) return data.message || null;
+  if (typeof data === "object") {
+    const obj = data as { error?: unknown; message?: unknown; type?: unknown };
+    if (typeof obj.error === "string" && obj.error) return obj.error;
+    if (typeof obj.message === "string" && obj.message) return obj.message;
+    // A DOM `Event` (e.g. the WebSocket "error" event) has no useful detail —
+    // treat it as an unknown transport error rather than a contentless string.
+    if (typeof obj.type === "string" && obj.type === "error") return null;
+  }
+  return null;
+}
+
 async function fetchToken(): Promise<string> {
   const res = await fetch(TOKEN_ENDPOINT);
   if (!res.ok) {
@@ -133,12 +153,31 @@ export function useScribe(
       // Ignore errors emitted while we're tearing the socket down on purpose
       // (a normal close surfaces as an ERROR with an empty payload).
       if (closingRef.current) return;
-      setError(data.error ?? "Scribe error");
+      const message = describeScribeError(data);
+      // A bare WebSocket "error" event carries no detail and is often
+      // transient (it's followed by a close event with the real reason).
+      // Skip those so we don't flash a contentless error; the close handler
+      // surfaces the actionable message if the disconnect was unclean.
+      if (!message) return;
+      setError(message);
+    });
+
+    connection.on(RealtimeEvents.CLOSE, (event) => {
+      if (closingRef.current) return;
+      // A clean close (1000/1005) is the expected end of a turn — no error.
+      const clean =
+        event?.wasClean || event?.code === 1000 || event?.code === 1005;
+      if (clean) return;
+      setError(
+        event?.reason
+          ? `Connection closed: ${event.reason}`
+          : "Connection closed unexpectedly. Check your network and mic permission.",
+      );
     });
 
     connection.on(RealtimeEvents.AUTH_ERROR, (data) => {
       if (closingRef.current) return;
-      setError(data.error ?? "Scribe authentication failed");
+      setError(describeScribeError(data) ?? "Scribe authentication failed");
     });
 
     connRef.current = connection;
