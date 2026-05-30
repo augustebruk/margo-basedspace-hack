@@ -1,33 +1,15 @@
 /**
  * MicScreen — the root orb / journaling screen of the Margo app.
  *
- * This is the first thing a user sees when they open Margo. It owns:
- *   - The centered orb (BulbAvatar) that reacts to AI / user speaking states.
- *   - The bottom mic button + finish/next side buttons (Controls).
- *   - The live transcript area that appears once recording starts.
- *   - Onboarding text rendered below the orb in normal document flow.
- *   - OnboardingOverlay for absolutely-positioned elements (firstInsight panel).
- *
  * Onboarding stage machine
  * ────────────────────────
- *   'intro'          → "Hi, I'm Margo" (auto-advances after 3 s)
- *   'askName'        → collect the user's name via voice
- *   'askFirstThought'→ ask for a free-form opening thought via voice
- *   'firstInsight'   → show the first mirror moment panel
- *   'done'           → onboarding complete; regular entry flow active
+ *   'intro'           → "Hi, I'm Margo" (auto-advances after 3 s)
+ *   'askName'         → mic opens automatically; first utterance → userName
+ *   'askFirstThought' → mic opens automatically; utterance → firstThoughtTranscript
+ *   'firstInsight'    → shows mirror-moment panel with real transcript + insight
+ *   'done'            → regular entry flow
  *
- * DEV shortcut: press `d` to step through stages one at a time.
- *
- * Plugging in the next steps
- * ──────────────────────────
- *   1. Voice logic → replace the demo STT `useEffect` with a real STT hook
- *      that sets `isListening`, feeds `setPersonTranscript`, and calls
- *      `onUserFinishedSpeaking` when the user stops speaking.
- *   2. Real name / thought capture → call `handleNameCaptured` /
- *      `handleFirstThoughtCaptured` from the STT hook when audio is detected
- *      during the respective stages.
- *   3. AI messages → swap the local QUESTIONS array for a real AI call inside
- *      `aiSay()`. The function signature and call sites stay the same.
+ * DEV shortcut: press `d` to step through stages without speaking.
  */
 
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
@@ -36,40 +18,19 @@ import { BulbAvatar, type BulbState } from "../../BulbAvatar";
 import { Controls } from "../../Controls";
 import { MargoLogo } from "../../MargoLogo";
 import { OnboardingOverlay } from "./OnboardingOverlay";
+import { useSpeechToText } from "../../hooks/useSpeechToText";
+import { deriveInsight, type Insight } from "../../lib/insightEngine";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* Onboarding stage type                                                        */
+/* Types                                                                        */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-/**
- * Describes which step of the first-time onboarding flow is active.
- * 'intro'          → "Hi, I'm Margo" greeting (auto-advances after 3 s).
- * 'askName'        → collect the user's name.
- * 'askFirstThought'→ ask for a free-form opening thought.
- * 'firstInsight'   → show the first mirror moment panel.
- * 'done'           → onboarding complete; drop into normal entry flow.
- */
 export type OnboardingStage =
   | "intro"
   | "askName"
   | "askFirstThought"
   | "firstInsight"
   | "done";
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/* Demo question bank — swap with real AI responses when ready                 */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-const QUESTIONS = [
-  "How did that make you feel?",
-  "What do you think triggered that?",
-  "Is there anything you'd do differently?",
-  "What would you tell a friend in your situation?",
-];
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/* Ordered onboarding stage sequence (for the dev keyboard shortcut)           */
-/* ─────────────────────────────────────────────────────────────────────────── */
 
 const STAGE_ORDER: OnboardingStage[] = [
   "intro",
@@ -80,27 +41,20 @@ const STAGE_ORDER: OnboardingStage[] = [
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/* Legal links                                                                  */
+/* Constants                                                                    */
 /* ─────────────────────────────────────────────────────────────────────────── */
+
+const QUESTIONS = [
+  "How did that make you feel?",
+  "What do you think triggered that?",
+  "Is there anything you'd do differently?",
+  "What would you tell a friend in your situation?",
+];
 
 const legalLinks = [
   { label: "Terms of Service", href: "#terms" },
   { label: "Privacy Policy", href: "#privacy" },
 ];
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/* Placeholder backend handlers                                                 */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function onUserFinishedSpeaking(transcript: string): void {
-  // TODO: send the captured transcript to the AI and await the next question.
-  console.log("[AI] user finished speaking:", transcript);
-}
-
-function onNextPromptRequested(): void {
-  // TODO: ask the AI for the next question/prompt.
-  console.log("[AI] next prompt requested");
-}
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* Shared text styles                                                           */
@@ -112,14 +66,21 @@ const subCls =
   "[font-family:'Inter',Helvetica] font-normal text-[#1c2b33]/55 tracking-[-0.3px] leading-[1.5] text-center";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/* Placeholder backend handlers (post-onboarding)                               */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+function onUserFinishedSpeaking(transcript: string): void {
+  console.log("[AI] user finished speaking:", transcript);
+}
+function onNextPromptRequested(): void {
+  console.log("[AI] next prompt requested");
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /* Props                                                                        */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 interface MicScreenProps {
-  /**
-   * Called when the user taps "Finish entry". The parent (Frame) uses this to
-   * transition the app to the loading → reflection phase.
-   */
   onEntryComplete: () => void;
 }
 
@@ -129,21 +90,15 @@ interface MicScreenProps {
 
 export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
   // ── Onboarding state ──────────────────────────────────────────────────────
-  /**
-   * Active onboarding stage. Starts at 'intro' for all new sessions.
-   * TODO: skip to 'done' if the user has already completed onboarding
-   * (check a persisted flag from backend / localStorage).
-   */
   const [onboardingStage, setOnboardingStage] =
     useState<OnboardingStage>("intro");
+  const [userName, setUserName] = useState<string | null>(null);
+  const [firstThoughtTranscript, setFirstThoughtTranscript] = useState<string | null>(null);
+  const [currentInsight, setCurrentInsight] = useState<Insight | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
-  /** Name captured during the 'askName' stage. */
-  const [capturedName, setCapturedName] = useState("");
-
-  // ── Voice / recording state ───────────────────────────────────────────────
-  const [isListening, setIsListening] = useState(false);
-
-  // ── Conversation / orb state ──────────────────────────────────────────────
+  // ── Voice / recording state (post-onboarding entry) ───────────────────────
   const [bulbState, setBulbState] = useState<BulbState>("idle");
   const [currentQuestion, setCurrentQuestion] = useState(QUESTIONS[0]);
   const [personTranscript, setPersonTranscript] = useState("");
@@ -153,6 +108,96 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
   const started = bulbState !== "idle";
   const aiSpeaking = bulbState === "aiSpeaking";
   const personSpeaking = bulbState === "personSpeaking";
+  const onboardingActive = onboardingStage !== "done";
+
+  // ── Real STT hook (onboarding voice capture) ──────────────────────────────
+  const onboardingSttOnEnd = useCallback(
+    (transcript: string) => {
+      const trimmed = transcript.trim();
+
+      if (onboardingStage === "askName") {
+        if (!trimmed) {
+          // Retry once on empty capture.
+          if (retryCount < 1) {
+            setRetryCount((c) => c + 1);
+            setRetryMessage("I didn't catch that — let's try again.");
+            setTimeout(() => {
+              setRetryMessage(null);
+              startOnboardingListening();
+            }, 1800);
+          } else {
+            // Second failure: skip to a default name and continue.
+            setUserName("friend");
+            setRetryCount(0);
+            setRetryMessage(null);
+            setTimeout(() => setOnboardingStage("askFirstThought"), 600);
+          }
+          return;
+        }
+        // Take the first word as the name, capitalise it.
+        const name = trimmed.split(/\s+/)[0];
+        const capitalised = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+        setUserName(capitalised);
+        setRetryCount(0);
+        setRetryMessage(null);
+        setTimeout(() => setOnboardingStage("askFirstThought"), 900);
+      }
+
+      if (onboardingStage === "askFirstThought") {
+        if (!trimmed) {
+          if (retryCount < 1) {
+            setRetryCount((c) => c + 1);
+            setRetryMessage("I didn't catch that — let's try again.");
+            setTimeout(() => {
+              setRetryMessage(null);
+              startOnboardingListening();
+            }, 1800);
+          } else {
+            // Skip to insight with placeholder.
+            const fallback = "Something on my mind.";
+            setFirstThoughtTranscript(fallback);
+            setCurrentInsight(deriveInsight(fallback));
+            setRetryCount(0);
+            setRetryMessage(null);
+            setOnboardingStage("firstInsight");
+          }
+          return;
+        }
+        setFirstThoughtTranscript(trimmed);
+        setCurrentInsight(deriveInsight(trimmed));
+        setRetryCount(0);
+        setRetryMessage(null);
+        setOnboardingStage("firstInsight");
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onboardingStage, retryCount],
+  );
+
+  const {
+    startListening: startOnboardingListening,
+    stopListening: stopOnboardingListening,
+    isListening: onboardingListening,
+    transcript: onboardingTranscript,
+  } = useSpeechToText({
+    onEnd: onboardingSttOnEnd,
+    continuous: false,
+    lang: "en-US",
+  });
+
+  // ── Auto-start mic on stage entry ─────────────────────────────────────────
+  useEffect(() => {
+    if (onboardingStage === "askName" || onboardingStage === "askFirstThought") {
+      // Small delay so the stage animation finishes before the mic opens.
+      const t = setTimeout(() => startOnboardingListening(), 600);
+      return () => clearTimeout(t);
+    }
+    // Stop mic if we leave a listening stage.
+    if (onboardingStage !== "askName" && onboardingStage !== "askFirstThought") {
+      stopOnboardingListening();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingStage]);
 
   // ── Onboarding: auto-advance 'intro' → 'askName' after 3 s ───────────────
   useEffect(() => {
@@ -168,28 +213,23 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       if (e.key !== "d") return;
       setOnboardingStage((current) => {
         const idx = STAGE_ORDER.indexOf(current);
-        return idx < STAGE_ORDER.length - 1
-          ? STAGE_ORDER[idx + 1]
-          : current;
+        // Inject mock data when fast-forwarding through capture stages.
+        if (current === "askName") {
+          setUserName("Alex");
+        }
+        if (current === "askFirstThought") {
+          const mock = "I've been feeling overwhelmed at work lately.";
+          setFirstThoughtTranscript(mock);
+          setCurrentInsight(deriveInsight(mock));
+        }
+        return idx < STAGE_ORDER.length - 1 ? STAGE_ORDER[idx + 1] : current;
       });
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // ── Onboarding callbacks ──────────────────────────────────────────────────
-
-  const handleNameCaptured = (name: string) => {
-    setCapturedName(name);
-    setTimeout(() => setOnboardingStage("askFirstThought"), 900);
-  };
-
-  const handleFirstThoughtCaptured = (transcript: string) => {
-    console.log("[onboarding] first thought:", transcript);
-    setOnboardingStage("firstInsight");
-  };
-
-  // ── AI helpers ────────────────────────────────────────────────────────────
+  // ── Post-onboarding AI helpers ────────────────────────────────────────────
   const aiSay = useCallback((question: string) => {
     setCurrentQuestion(question);
     setPersonTranscript("");
@@ -206,46 +246,42 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
   }, []);
 
   // ── Event handlers ────────────────────────────────────────────────────────
-
   const handleStartEntry = () => {
     questionIndex.current = 0;
     setBurstKey((k) => k + 1);
     aiSay(QUESTIONS[0]);
   };
 
+  const [entryListening, setEntryListening] = useState(false);
+
   const handleMicToggle = () => {
-    if (isListening) {
-      setIsListening(false);
+    if (entryListening) {
+      setEntryListening(false);
       onUserFinishedSpeaking(personTranscript);
       aiSay(nextQuestion());
     } else {
-      setIsListening(true);
+      setEntryListening(true);
       listen();
     }
   };
 
   const handleNextPrompt = () => {
     onNextPromptRequested();
-    if (isListening) setIsListening(false);
-    if (!aiSpeaking && personTranscript)
-      onUserFinishedSpeaking(personTranscript);
+    if (entryListening) setEntryListening(false);
+    if (!aiSpeaking && personTranscript) onUserFinishedSpeaking(personTranscript);
     aiSay(nextQuestion());
   };
 
   const handleFinishEntry = () => {
-    if (isListening) setIsListening(false);
+    setEntryListening(false);
     onEntryComplete();
   };
 
-  // ── Demo STT simulation ───────────────────────────────────────────────────
-  // DEMO ONLY: simulates a live speech-to-text stream while `isListening`.
-  // Replace with a real STT hook when voice is wired in.
+  // ── Demo transcript stream (post-onboarding, entry phase only) ───────────
   useEffect(() => {
-    if (!isListening) return;
+    if (!entryListening) return;
     const words =
-      "I think it made me feel a little more hopeful than before, like things might actually be okay.".split(
-        " ",
-      );
+      "I think it made me feel a little more hopeful than before, like things might actually be okay.".split(" ");
     let i = 0;
     setPersonTranscript("");
     const id = setInterval(() => {
@@ -254,11 +290,16 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       if (i >= words.length) clearInterval(id);
     }, 180);
     return () => clearInterval(id);
-  }, [isListening]);
+  }, [entryListening]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const onboardingActive = onboardingStage !== "done";
+  // During onboarding, show orb in listening state when mic is open.
+  const displayBulbState: BulbState = onboardingActive
+    ? onboardingListening
+      ? "personSpeaking"
+      : "idle"
+    : bulbState;
 
   return (
     <motion.div
@@ -267,13 +308,19 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       transition={{ duration: 0.5, ease: "easeInOut" }}
       className="relative flex h-full w-full flex-col items-center px-6 pt-[118px] pb-8"
     >
-      {/* Brand logo, anchored at the top of the screen. */}
+      {/* Brand logo */}
       <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
 
-      {/* firstInsight panel — absolutely positioned, rendered over the screen */}
-      {onboardingActive && <OnboardingOverlay stage={onboardingStage} />}
+      {/* firstInsight bottom panel — absolutely positioned */}
+      {onboardingActive && (
+        <OnboardingOverlay
+          stage={onboardingStage}
+          transcript={firstThoughtTranscript ?? undefined}
+          insight={currentInsight ?? undefined}
+        />
+      )}
 
-      {/* Title — visible only after onboarding and before entry starts. */}
+      {/* Title — shown only after onboarding and before entry starts. */}
       <AnimatePresence>
         {!onboardingActive && !started && (
           <motion.h1
@@ -290,10 +337,10 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
         )}
       </AnimatePresence>
 
-      {/* ── Orb ────────────────────────────────────────────────────────────── */}
+      {/* ── Orb + below-orb text ──────────────────────────────────────────── */}
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
         <div className="relative flex items-center justify-center">
-          {/* Burst ring that fires on entry start. */}
+          {/* Burst ring on entry start */}
           <AnimatePresence>
             {burstKey > 0 && (
               <motion.span
@@ -308,14 +355,14 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
             )}
           </AnimatePresence>
 
-          <BulbAvatar state={bulbState} size={227} />
+          <BulbAvatar state={displayBulbState} size={227} />
         </div>
 
-        {/* ── Below-orb text: onboarding prompts OR AI question ────────────── */}
-        <div className="flex min-h-[80px] w-full flex-col items-center justify-center px-6">
+        {/* Below-orb text slot */}
+        <div className="flex min-h-[120px] w-full flex-col items-center justify-start px-6">
           <AnimatePresence mode="wait">
 
-            {/* Onboarding: intro */}
+            {/* intro */}
             {onboardingStage === "intro" && (
               <motion.div
                 key="intro"
@@ -329,22 +376,21 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                 <p className={`${subCls} text-[16px]`}>
                   What if your journal talked back?
                 </p>
-                {/* Legal disclaimer shown only on intro stage */}
-                <p className="mt-6 text-[13px] text-[#1c2b33]/50 [font-family:'Inter',Helvetica] font-normal leading-[1.5] max-w-[300px]">
-                  <span>By tapping &apos;Start Entry&apos; and using our app, you&apos;re agreeing to our </span>
+                <p className="mt-6 text-[13px] text-[#1c2b33]/50 [font-family:'Inter',Helvetica] font-normal leading-[1.5] max-w-[300px] text-center">
+                  By tapping &apos;Start Entry&apos; and using our app, you&apos;re agreeing to our{" "}
                   <a href={legalLinks[0].href} className="text-[#00b2ff] hover:underline">
                     Terms of Service
                   </a>
-                  <span> and </span>
+                  {" "}and{" "}
                   <a href={legalLinks[1].href} className="text-[#00b2ff] hover:underline">
                     Privacy Policy
                   </a>
-                  <span>.</span>
+                  .
                 </p>
               </motion.div>
             )}
 
-            {/* Onboarding: ask name */}
+            {/* askName */}
             {onboardingStage === "askName" && (
               <motion.div
                 key="askName"
@@ -358,30 +404,45 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                   Before we begin — what should I call you?
                 </p>
                 <AnimatePresence mode="wait">
-                  {capturedName ? (
+                  {retryMessage ? (
+                    <motion.span
+                      key="retry"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className={`${subCls} text-[14px] mt-1`}
+                    >
+                      {retryMessage}
+                    </motion.span>
+                  ) : userName ? (
                     <motion.p
                       key="name"
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="[font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] tracking-[-0.6px] mt-1"
                     >
-                      {capturedName}
+                      {userName}
                     </motion.p>
                   ) : (
                     <motion.span
                       key="hint"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className={`${subCls} text-[14px]`}
+                      className={`${subCls} text-[14px] mt-1`}
                     >
-                      Listening for your name&hellip;
+                      {onboardingListening
+                        ? onboardingTranscript || "Listening\u2026"
+                        : "Getting mic ready\u2026"}
                     </motion.span>
                   )}
                 </AnimatePresence>
                 {import.meta.env.DEV && (
                   <button
                     type="button"
-                    onClick={() => handleNameCaptured("Alex")}
+                    onClick={() => {
+                      setUserName("Alex");
+                      setTimeout(() => setOnboardingStage("askFirstThought"), 900);
+                    }}
                     className="mt-2 rounded-full border border-dashed border-[#1c2b33]/20 px-4 py-1.5 text-[12px] text-[#1c2b33]/40 [font-family:'Inter',Helvetica] hover:border-[#1c2b33]/40 hover:text-[#1c2b33]/60 transition-colors"
                   >
                     [dev] simulate name &rarr; &ldquo;Alex&rdquo;
@@ -390,7 +451,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               </motion.div>
             )}
 
-            {/* Onboarding: ask first thought */}
+            {/* askFirstThought */}
             {onboardingStage === "askFirstThought" && (
               <motion.div
                 key="askFirstThought"
@@ -400,23 +461,46 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                 transition={{ duration: 0.5, ease: "easeOut" }}
                 className="flex flex-col items-center gap-2"
               >
-                {capturedName && (
+                {userName && (
                   <p className={`${headingCls} text-[20px]`}>
-                    Nice to meet you, {capturedName}.
+                    Nice to meet you, {userName}.
                   </p>
                 )}
                 <p className={`${subCls} text-[15px] max-w-[300px]`}>
                   Tell me one thing that&apos;s been on your mind lately.
                   Anything. Big, small, messy. I&apos;m here to listen.
                 </p>
+                <AnimatePresence mode="wait">
+                  {retryMessage ? (
+                    <motion.span
+                      key="retry"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className={`${subCls} text-[14px] mt-1`}
+                    >
+                      {retryMessage}
+                    </motion.span>
+                  ) : onboardingListening ? (
+                    <motion.span
+                      key="live"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className={`${subCls} text-[14px] mt-1 max-w-[300px]`}
+                    >
+                      {onboardingTranscript || "Listening\u2026"}
+                    </motion.span>
+                  ) : null}
+                </AnimatePresence>
                 {import.meta.env.DEV && (
                   <button
                     type="button"
-                    onClick={() =>
-                      handleFirstThoughtCaptured(
-                        "I've been feeling overwhelmed at work lately.",
-                      )
-                    }
+                    onClick={() => {
+                      const mock = "I've been feeling overwhelmed at work lately.";
+                      setFirstThoughtTranscript(mock);
+                      setCurrentInsight(deriveInsight(mock));
+                      setOnboardingStage("firstInsight");
+                    }}
                     className="mt-2 rounded-full border border-dashed border-[#1c2b33]/20 px-4 py-1.5 text-[12px] text-[#1c2b33]/40 [font-family:'Inter',Helvetica] hover:border-[#1c2b33]/40 hover:text-[#1c2b33]/60 transition-colors"
                   >
                     [dev] simulate first thought captured
@@ -425,12 +509,12 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               </motion.div>
             )}
 
-            {/* Onboarding: firstInsight — text slot is empty; panel is positioned */}
+            {/* firstInsight — text is in the panel; keep slot empty */}
             {onboardingStage === "firstInsight" && (
               <motion.div key="firstInsightPlaceholder" />
             )}
 
-            {/* Post-onboarding: AI question */}
+            {/* Post-onboarding AI question */}
             {!onboardingActive && aiSpeaking && (
               <motion.p
                 key={currentQuestion}
@@ -448,7 +532,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
         </div>
       </div>
 
-      {/* ── Bottom block: Start Entry (idle) OR transcript + controls ───────── */}
+      {/* ── Bottom block ─────────────────────────────────────────────────────── */}
       <div className="flex w-full flex-col items-center">
         <AnimatePresence mode="wait">
           {!started ? (
@@ -458,7 +542,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               transition={{ duration: 0.5, ease: "easeIn" }}
               className="flex w-full flex-col items-center gap-[60px]"
             >
-              {/* Hide the Start Entry button until onboarding is complete. */}
               <AnimatePresence>
                 {!onboardingActive && (
                   <motion.button
@@ -478,8 +561,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                   </motion.button>
                 )}
               </AnimatePresence>
-
-              {/* Legal disclaimer moved to intro stage */}
             </motion.div>
           ) : (
             <motion.div
@@ -512,7 +593,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               </div>
 
               <Controls
-                isRecording={isListening}
+                isRecording={entryListening}
                 onMicToggle={handleMicToggle}
                 onFinish={handleFinishEntry}
                 onNext={handleNextPrompt}

@@ -10,13 +10,20 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { JSX } from "react";
 import type { OnboardingStage } from "./MicScreen";
+import type { Insight } from "../../lib/insightEngine";
 
 interface OnboardingOverlayProps {
   stage: OnboardingStage;
+  /** The user's captured "first thought" transcript. */
+  transcript?: string;
+  /** Derived insight to display in the firstInsight panel. */
+  insight?: Insight;
 }
 
 export const OnboardingOverlay = ({
   stage,
+  transcript,
+  insight,
 }: OnboardingOverlayProps): JSX.Element => {
   return (
     <AnimatePresence>
@@ -34,7 +41,7 @@ export const OnboardingOverlay = ({
               You said
             </span>
             <p className="[font-family:'Inter',Helvetica] font-normal text-[14px] leading-[1.5] text-[#1c2b33]/70">
-              &ldquo;I&apos;ve been feeling overwhelmed at work lately.&rdquo;
+              &ldquo;{transcript ?? "…"}&rdquo;
             </p>
           </div>
           <div className="h-px w-full bg-[#1c2b33]/8" />
@@ -43,8 +50,7 @@ export const OnboardingOverlay = ({
               Margo notices
             </span>
             <p className="[font-family:'Inter',Helvetica] font-normal text-[14px] leading-[1.5] text-[#1c2b33]/70">
-              You named a feeling without judging it. That takes more awareness
-              than you might think.
+              {insight?.notice ?? "Just the act of putting words to something you've been carrying can shift how it feels."}
             </p>
           </div>
         </motion.div>
