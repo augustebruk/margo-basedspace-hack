@@ -354,7 +354,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
         )}
       </AnimatePresence>
 
-      {/* ── Orb + below-orb text ──────────────────────────────────────────── */}
+      {/* ── Orb + below-orb text ─────��────────────────────────────────────── */}
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
         <div className="relative flex items-center justify-center">
           <AnimatePresence>
@@ -363,14 +363,14 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                 key={burstKey}
                 aria-hidden="true"
                 className="absolute rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
-                style={{ width: 227, height: 227 }}
+                style={{ width: 220, height: 220 }}
                 initial={{ opacity: 0.6, scale: 1 }}
                 animate={{ opacity: 0, scale: 1.7 }}
                 transition={{ duration: 0.7, ease: "easeOut" }}
               />
             )}
           </AnimatePresence>
-          <BulbAvatar state={displayBulbState} size={227} />
+          <BulbAvatar state={displayBulbState} size={220} />
         </div>
 
         {/* Below-orb text slot */}
