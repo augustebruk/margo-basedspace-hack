@@ -5,13 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node --env-file-if-exists=/vercel/share/.env.project server.mjs",
+    "dev:live": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^2.7.0",
+    "concurrently": "^10.0.0",
+    "dotenv": "^17.4.2",
     "motion": "^12.40.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.7",

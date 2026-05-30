@@ -5,6 +5,7 @@ import { Controls } from "./Controls";
 import { MargoLogo } from "./MargoLogo";
 import { ReflectionView, type ReflectionViewProps } from "./ReflectionView";
 import { PracticeView } from "./PracticeView";
+import { LiveVoiceAgent } from "./LiveVoiceAgent";
 
 const legalLinks = [
   { label: "Terms of Service", href: "#terms" },
@@ -58,7 +59,7 @@ function onNextPrompt(): void {
   console.log("[AI] next prompt requested");
 }
 
-type Phase = "entry" | "loading" | "reflection" | "practice";
+type Phase = "entry" | "loading" | "reflection" | "practice" | "live";
 
 // How long the white "preparing" loading screen shows before the reflection.
 const LOADING_MS = 1900;
@@ -77,6 +78,13 @@ export const Frame = (): JSX.Element => {
 
   // Reflection screen: true while the AI "reads" the summary (drives the wave).
   const [reflectionSpeaking, setReflectionSpeaking] = useState(false);
+
+  // Live voice agent state
+  const [showLiveAgent, setShowLiveAgent] = useState(false);
+  const [liveAiSpeaking, setLiveAiSpeaking] = useState(false);
+  const [livePersonSpeaking, setLivePersonSpeaking] = useState(false);
+  const [liveQuestion, setLiveQuestion] = useState("");
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   const started = bulbState !== "idle";
   const aiSpeaking = bulbState === "aiSpeaking";
@@ -164,6 +172,18 @@ export const Frame = (): JSX.Element => {
     questionIndex.current = 0;
     setBulbState("idle");
     setPhase("entry");
+  };
+
+  // Toggle live agent demo
+  const handleToggleLiveAgent = () => {
+    if (showLiveAgent) {
+      setShowLiveAgent(false);
+      setPhase("entry");
+      setBulbState("idle");
+    } else {
+      setShowLiveAgent(true);
+      setPhase("live");
+    }
   };
 
   // DEMO ONLY: simulate live speech-to-text while recording. Remove once a
@@ -271,6 +291,16 @@ export const Frame = (): JSX.Element => {
                           Start Entry
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={handleToggleLiveAgent}
+                        className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[60px] py-3.5 relative rounded-[100px] bg-green-500 text-white cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 hover:bg-green-600 transition"
+                        aria-label="Try Live Agent"
+                      >
+                        <span className="relative [font-family:'Inter',Helvetica] font-medium text-white text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
+                          Try Live Agent ✨
+                        </span>
+                      </button>
                       <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
                         <span className="text-[#1c2b33b8] tracking-[-0.05px]">
                           By tapping &apos;Start Entry&apos; and using our app,
@@ -373,9 +403,56 @@ export const Frame = (): JSX.Element => {
               onSummaryComplete={() => setReflectionSpeaking(false)}
               onStartDailyPractice={handleStartDailyPractice}
             />
-          ) : (
+          ) : phase === "practice" ? (
             <PracticeView key="practice" onBackHome={handleBackHome} />
-          )}
+          ) : phase === "live" ? (
+            <motion.div
+              key="live"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="flex h-full w-full flex-col items-center justify-center gap-6 bg-white px-8 py-8"
+            >
+              <div className="text-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Live Voice Agent</h2>
+                <p className="text-gray-600 text-sm">
+                  {livePersonSpeaking && "Listening..."}
+                  {liveAiSpeaking && !livePersonSpeaking && "AI Speaking..."}
+                  {!livePersonSpeaking && !liveAiSpeaking && "Ready"}
+                </p>
+              </div>
+
+              {liveQuestion && (
+                <div className="w-full p-4 bg-blue-50 rounded-lg border border-blue-200 mb-4">
+                  <p className="text-gray-800 font-medium">{liveQuestion}</p>
+                </div>
+              )}
+
+              {liveTranscript && (
+                <div className="w-full p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="text-xs font-semibold text-gray-700 mb-2">Your Response</div>
+                  <p className="text-gray-700">{liveTranscript}</p>
+                </div>
+              )}
+
+              <div className="flex-1" />
+
+              <LiveVoiceAgent
+                onAiSpeakingChange={setLiveAiSpeaking}
+                onPersonSpeakingChange={setLivePersonSpeaking}
+                onQuestion={setLiveQuestion}
+                onTranscript={setLiveTranscript}
+              />
+
+              <button
+                onClick={handleToggleLiveAgent}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600"
+              >
+                Back to Entry
+              </button>
+            </motion.div>
+          ) : null}
         </AnimatePresence>
       </section>
     </main>
