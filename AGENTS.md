@@ -12,7 +12,13 @@
 |--------|-----------|--------|
 | **Vite dev server** | **MUST** for local dev | `npm run dev` — default http://localhost:5173. In Cloud Agent VMs, pass `--host 0.0.0.0` if the server must be reached outside the container. |
 | **Vite preview** | Optional | `npm run build` then `npm run preview` for production bundle smoke tests. |
-| **Backend / DB / Docker** | N/A | Not in this repo; UI uses mocked questions and reflection data in `src/Frame.tsx`. |
+| **Backend / DB / Docker** | N/A | No app backend; AI follow-up questions are mocked in `src/Frame.tsx`. **Exceptions:** speech-to-text (ElevenLabs Scribe) and reflection generation (Anthropic Claude) are served by Vite dev/preview middleware at `/api/scribe-token` and `/api/reflection`, which need API keys set (see Env below). |
+
+### Env
+
+- Copy `.env.example` → `.env` and set (both server-side only; **no** `VITE_` prefix, so they never enter the client bundle; restart the dev server after editing):
+  - `ELEVENLABS_API_KEY` — speech-to-text. Without it, the mic UI runs but transcription shows a "key not set" error.
+  - `ANTHROPIC_API_KEY` — reflection generation. Without it, the app falls back to a built-in mock reflection (fine for demos).
 
 ### Commands (see `package.json` and `README.md`)
 
@@ -34,7 +40,7 @@ npm run dev -- --host 0.0.0.0
 
 1. Open the app at a **mobile viewport** (~390×844).
 2. Tap **Start Entry**.
-3. Use the mic control (mock STT fills the transcript), advance through questions, then finish the entry.
+3. Use the mic control (grant mic permission — ElevenLabs Scribe fills the transcript live; needs `ELEVENLABS_API_KEY` in `.env`), advance through questions, then finish the entry.
 4. Confirm **loading** (“Wrapping up your entry…”) then **reflection** (summary, patterns, graph).
 5. Optional: **Start daily practice** → practice placeholder → back to home.
 
