@@ -1,6 +1,9 @@
-import { useMemo, type JSX } from "react";
+import { useMemo, useState, type JSX } from "react";
 import { motion, type Variants } from "motion/react";
 import { EntryGraph } from "./EntryGraph";
+import { RangeToggle } from "./RangeToggle";
+import { PatternTags } from "./PatternTags";
+import { buildAggregatedGraph, type GraphRange } from "./graphModel";
 import type { Entry } from "./useEntries";
 import { formatDay, formatDuration, formatTime } from "./entryFormat";
 
@@ -12,6 +15,8 @@ import { formatDay, formatDuration, formatTime } from "./entryFormat";
  * ==========================================================================*/
 export interface EntryDetailViewProps {
   entry: Entry;
+  /** All saved entries, to rebuild the cumulative map as of this entry. */
+  allEntries: Entry[];
   onBack: () => void;
 }
 
@@ -77,6 +82,7 @@ const Stat = ({
 
 export const EntryDetailView = ({
   entry,
+  allEntries,
   onBack,
 }: EntryDetailViewProps): JSX.Element => {
   const turns = useMemo(
@@ -84,6 +90,14 @@ export const EntryDetailView = ({
     [entry.transcript],
   );
   const { reflection } = entry;
+
+  // The map as of this entry: aggregate every entry up to and including this
+  // one, treating this entry's date as "now" so its own nodes light up purple.
+  const [range, setRange] = useState<GraphRange>("week");
+  const aggregated = useMemo(() => {
+    const upTo = allEntries.filter((e) => e.createdAt <= entry.createdAt);
+    return buildAggregatedGraph(upTo, range, { now: entry.createdAt });
+  }, [allEntries, entry.createdAt, range]);
 
   return (
     <motion.div
@@ -185,31 +199,34 @@ export const EntryDetailView = ({
           </motion.section>
         )}
 
-        {/* Patterns + connection graph — same as the live reflection screen. */}
+        {/* Patterns + the living atom graph — same as the live reflection. */}
         <motion.section variants={item} className="mt-8 flex flex-col gap-3">
           <SectionTitle>Patterns</SectionTitle>
           {reflection.patterns.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {reflection.patterns.map((p) => (
-                <span
-                  key={p.label}
-                  className="inline-flex items-baseline gap-1.5 rounded-full bg-[rgba(244,231,255,0.5)] px-3.5 py-1.5"
-                >
-                  <span className="[font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/80">
-                    {p.label}
-                  </span>
-                  {p.recurrenceLabel && (
-                    <span className="[font-family:'Inter',Helvetica] text-[11px] font-normal text-[#1c2b33]/40">
-                      · {p.recurrenceLabel}
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
+            <PatternTags
+              patterns={reflection.patterns}
+              graph={aggregated}
+              range={range}
+            />
           )}
 
-          <div className="mt-1 overflow-hidden rounded-[20px] bg-white p-1.5 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
-            <EntryGraph title={`${formatDay(entry.createdAt)}'s entry`} height={240} />
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <SectionTitle>Your map</SectionTitle>
+            <RangeToggle value={range} onChange={setRange} />
+          </div>
+          {aggregated.grewTodayCount > 0 && (
+            <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
+              <span className="font-semibold text-[#7c3aed]">
+                {aggregated.grewTodayCount} new{" "}
+                {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
+              </span>{" "}
+              grew from this entry — the purple nodes. Tap any node to see what
+              you said and how it connects.
+            </p>
+          )}
+          {/* Full-bleed, on the background — no card. */}
+          <div className="-mx-5 mt-1">
+            <EntryGraph graph={aggregated} range={range} height={420} />
           </div>
         </motion.section>
 

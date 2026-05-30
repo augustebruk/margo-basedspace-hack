@@ -7,6 +7,10 @@ import {
 } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
 import { EntryGraph } from "./EntryGraph";
+import { RangeToggle } from "./RangeToggle";
+import { PatternTags } from "./PatternTags";
+import { buildAggregatedGraph, type GraphRange } from "./graphModel";
+import type { Entry } from "./useEntries";
 
 /* ============================================================================
  * Types — shape the AI output into these props. Plug real model output in
@@ -26,6 +30,8 @@ export interface ReflectionViewProps {
   summary: string;
   patterns: ReflectionPattern[];
   nextSteps: string[];
+  /** All saved entries (incl. the one just finished), to aggregate the map. */
+  pastEntries: Entry[];
   /** @deprecated No longer used — the voice bar/waveform was removed. */
   aiSpeaking?: boolean;
   /** Called once the summary has fully revealed (parent calms the wave). */
@@ -62,9 +68,22 @@ export const ReflectionView = ({
   summary,
   patterns,
   nextSteps,
+  pastEntries,
   onSummaryComplete,
   onStartDailyPractice,
 }: ReflectionViewProps): JSX.Element => {
+  // Which span of life to map. Default to the week — the most actionable view.
+  const [range, setRange] = useState<GraphRange>("week");
+
+  // The cumulative atom graph: every entry's people/situations/feelings for
+  // the selected range. Tonight's entry is already persisted into
+  // `pastEntries` by the time we render, so it's included automatically (and
+  // its nodes light up purple as "new today").
+  const aggregated = useMemo(
+    () => buildAggregatedGraph(pastEntries, range),
+    [pastEntries, range],
+  );
+
   // Split the reframe into sentences for the progressive reveal.
   const sentences = useMemo(
     () => summary.match(/[^.!?]+[.!?]+(\s|$)/g)?.map((s) => s.trim()) ?? [summary],
@@ -140,32 +159,34 @@ export const ReflectionView = ({
           variants={container}
           initial="hidden"
           animate={contentRevealed ? "show" : "hidden"}
-          className="mt-7 flex flex-col gap-7"
+          className="mt-7 flex flex-col gap-8"
         >
-          {/* Patterns + connection graph */}
+          {/* Patterns — bigger, insightful chips with real frequency. */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Patterns</SectionTitle>
-            <div className="flex flex-wrap gap-2">
-              {patterns.map((p) => (
-                <span
-                  key={p.label}
-                  className="inline-flex items-baseline gap-1.5 rounded-full bg-[rgba(244,231,255,0.5)] px-3.5 py-1.5"
-                >
-                  <span className="[font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/80">
-                    {p.label}
-                  </span>
-                  {p.recurrenceLabel && (
-                    <span className="[font-family:'Inter',Helvetica] text-[11px] font-normal text-[#1c2b33]/40">
-                      · {p.recurrenceLabel}
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
+            <PatternTags patterns={patterns} graph={aggregated} range={range} />
+          </motion.section>
 
-            {/* Obsidian-style graph of how this entry connects — drag, pan, zoom. */}
-            <div className="mt-1 overflow-hidden rounded-[20px] bg-white p-1.5 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
-              <EntryGraph height={240} />
+          {/* The living atom graph — big, full-bleed on the background. */}
+          <motion.section variants={item} className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <SectionTitle>Your map</SectionTitle>
+              <RangeToggle value={range} onChange={setRange} />
+            </div>
+            {aggregated.grewTodayCount > 0 && (
+              <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
+                <span className="font-semibold text-[#7c3aed]">
+                  {aggregated.grewTodayCount} new{" "}
+                  {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
+                </span>{" "}
+                grew from tonight — the purple nodes. Tap any node to see what
+                you said and how it connects.
+              </p>
+            )}
+            {/* Full-bleed: negative margins push past the px-5 page padding so
+                the graph reaches the screen edges, Obsidian-style. No card. */}
+            <div className="-mx-5 mt-1">
+              <EntryGraph graph={aggregated} range={range} height={420} />
             </div>
           </motion.section>
 
@@ -210,6 +231,20 @@ export const ReflectionView = ({
               <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px] text-white">
                 Start daily practice
               </span>
+              <svg
+                aria-hidden="true"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="shrink-0"
+              >
+                <path d="m9 6 6 6-6 6" />
+              </svg>
             </motion.button>
           )}
         </AnimatePresence>

@@ -11,7 +11,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
  * path (`POST /api/reflection`).
  *
  * Request body:  { transcript: string, mode?: "reflection" | "insight" | "followup" | "practice", name?: string }
- * Response body (reflection): { summary: string, patterns: {label, recurrenceLabel?}[], nextSteps: string[] }
+ * Response body (reflection): { topic, summary, patterns: {label, recurrenceLabel?}[], nextSteps: string[], graph: { nodes: {label, type, mention}[], links: {source, target, relation}[] } }
  * Response body (insight):    { transitionLine, coreQuestion, summaryLine, triggers: string[], margoQuestion, highlightPhrases: string[] }
  * Response body (followup):   { question: string }
  * Response body (practice):   see the Practice type below (a personalized, therapy-grounded daily practice)
@@ -48,10 +48,22 @@ Return STRICT JSON matching this TypeScript type, and nothing else:
   "topic": string,          // a very short title (2-5 words, Title Case, no quotes or trailing punctuation) capturing what this entry was mostly about, e.g. "Work stress and sleep" or "Doubting a friendship". For a history list.
   "summary": string,        // Margo reflecting in 1-3 short, tight sentences, spoken directly to the user ("you..."). Mirror the emotional core so they feel seen, then end with one pointed, open question. Warm, grounded, lightly sarcastic in a loving way; at most one small joke about the pattern or situation, never about pain.
   "patterns": { "label": string, "recurrenceLabel"?: string }[], // 2-4 recurring emotional themes / patterns. label is 1-3 words. recurrenceLabel is an optional tiny hint like "recurring" or "mentioned twice".
-  "nextSteps": string[]     // 2-3 tiny, concrete actions or experiments the user could try today. No platitudes.
+  "nextSteps": string[],    // 2-3 tiny, concrete actions or experiments the user could try today. No platitudes.
+  "graph": {                // the concrete people, situations, and feelings the person mentioned, and how they connect — for a living "atom map" of their life.
+    "nodes": {              // 3-8 nodes. Extract the SPECIFIC, real things they named, not abstractions.
+      "label": string,      // the concrete thing in the user's own words: "Marcus", "my mom", "the Q3 deadline", "stuck". Short. Use a real name/word from what they said.
+      "type": "person" | "situation" | "feeling", // person = a specific human; situation = an event/context/place/thing; feeling = an emotion or inner state.
+      "mention": string     // ONE short verbatim (or lightly trimmed) snippet from what they said about this node.
+    }[],
+    "links": {              // 2-6 links connecting nodes that relate. Only connect nodes that actually appear in "nodes".
+      "source": string,     // must exactly match a node "label".
+      "target": string,     // must exactly match a node "label".
+      "relation": string    // a short human phrase for HOW they connect, e.g. "drains me", "reminds me of", "shows up around".
+    }[]
+  }
 }
 
-Be specific to what they actually said. Never invent facts. Never diagnose. Keep it punchy and non-clinical.`;
+Be specific to what they actually said. Never invent facts or names they didn't mention. Never diagnose. Keep it punchy and non-clinical. Every link's source and target MUST match a node label exactly.`;
 
 /**
  * Onboarding "Mirror Moment" insight. This is the wow-moment card shown right
@@ -96,6 +108,28 @@ Return STRICT JSON matching this TypeScript type, and nothing else:
 {
   "question": string
 }`;
+
+/**
+ * Cross-entry "Insights" — a period reflection that looks ACROSS many journal
+ * entries from a chosen time range (today / week / month / all time) and names
+ * the through-line: the recurring pattern, what's shifting, and one forward
+ * question. This is the narrative at the top of the Insights screen.
+ */
+const INSIGHTS_SYSTEM_PROMPT = `${MARGO_PERSONA}
+
+You are looking back across MULTIPLE journal entries from a single span of time (e.g. this week or this month). You are given a digest of those entries: each one's short topic, your earlier reflection, and a few of the person's own words. Find the through-line ACROSS entries — the pattern that keeps showing up, and what (if anything) is shifting over time.
+
+Speak to the person directly ("you"). Be specific to what actually recurs across the entries — do not just summarize the most recent one. If there is only one entry or too little to compare, set "shift" to an empty string rather than inventing change.
+
+Return STRICT JSON matching this TypeScript type, and nothing else:
+{
+  "headline": string,     // one warm, tight sentence naming the through-line of this period, spoken to the user. e.g. "This week kept circling back to whether you're allowed to rest."
+  "throughLine": string,  // 1-2 short sentences: the recurring pattern across the entries, in their emotional language. Mirror it so they feel seen.
+  "shift": string,        // one short sentence on what's changing or emerging across the entries (tone, frequency, a new name/feeling). EMPTY STRING "" if there isn't enough to compare.
+  "question": string      // one pointed, open question that moves them one step forward for the period ahead.
+}
+
+Be specific. Never invent facts. Never diagnose. Keep it punchy, warm, lightly sarcastic, non-clinical. At most one small joke about the pattern, never about pain.`;
 
 /**
  * Personalized daily practice. After an entry finishes, we build ONE small,
@@ -152,11 +186,27 @@ interface ReflectionPattern {
   label: string;
   recurrenceLabel?: string;
 }
+type GraphNodeType = "person" | "situation" | "feeling";
+interface GraphNodeSeed {
+  label: string;
+  type: GraphNodeType;
+  mention: string;
+}
+interface GraphLinkSeed {
+  source: string;
+  target: string;
+  relation: string;
+}
+interface EntryGraphSeed {
+  nodes: GraphNodeSeed[];
+  links: GraphLinkSeed[];
+}
 interface Reflection {
   topic: string;
   summary: string;
   patterns: ReflectionPattern[];
   nextSteps: string[];
+  graph: EntryGraphSeed;
 }
 
 interface Insight {
@@ -166,6 +216,13 @@ interface Insight {
   triggers: string[];
   margoQuestion: string;
   highlightPhrases: string[];
+}
+
+interface Insights {
+  headline: string;
+  throughLine: string;
+  shift: string;
+  question: string;
 }
 
 interface PracticeSkill {
@@ -254,7 +311,63 @@ function normalize(raw: unknown): Reflection | null {
         .map((s) => s.trim())
     : [];
 
-  return { topic, summary, patterns, nextSteps };
+  const graph = normalizeGraph(obj.graph);
+
+  return { topic, summary, patterns, nextSteps, graph };
+}
+
+const GRAPH_TYPES: ReadonlySet<GraphNodeType> = new Set([
+  "person",
+  "situation",
+  "feeling",
+]);
+
+/** Validate + coerce the model's graph seed; drops malformed nodes/links and
+ * keeps only links whose endpoints both resolve to a kept node. Always returns
+ * a well-formed (possibly empty) seed so the atom map never crashes. */
+function normalizeGraph(raw: unknown): EntryGraphSeed {
+  const empty: EntryGraphSeed = { nodes: [], links: [] };
+  if (!raw || typeof raw !== "object") return empty;
+  const obj = raw as Record<string, unknown>;
+
+  const seenLabels = new Set<string>();
+  const nodes: GraphNodeSeed[] = Array.isArray(obj.nodes)
+    ? obj.nodes
+        .map((n): GraphNodeSeed | null => {
+          if (!n || typeof n !== "object") return null;
+          const o = n as Record<string, unknown>;
+          const label = typeof o.label === "string" ? o.label.trim() : "";
+          const type = o.type;
+          if (!label || typeof type !== "string" || !GRAPH_TYPES.has(type as GraphNodeType))
+            return null;
+          const key = label.toLowerCase();
+          if (seenLabels.has(key)) return null; // de-dupe within an entry
+          seenLabels.add(key);
+          const mention = typeof o.mention === "string" ? o.mention.trim() : "";
+          return { label, type: type as GraphNodeType, mention };
+        })
+        .filter((n): n is GraphNodeSeed => n !== null)
+    : [];
+
+  const links: GraphLinkSeed[] = Array.isArray(obj.links)
+    ? obj.links
+        .map((l): GraphLinkSeed | null => {
+          if (!l || typeof l !== "object") return null;
+          const o = l as Record<string, unknown>;
+          const source = typeof o.source === "string" ? o.source.trim() : "";
+          const target = typeof o.target === "string" ? o.target.trim() : "";
+          if (!source || !target || source.toLowerCase() === target.toLowerCase())
+            return null;
+          // Both endpoints must reference a kept node label.
+          if (!seenLabels.has(source.toLowerCase()) || !seenLabels.has(target.toLowerCase()))
+            return null;
+          const relation = typeof o.relation === "string" ? o.relation.trim() : "";
+          return { source, target, relation };
+        })
+        .filter((l): l is GraphLinkSeed => l !== null)
+    : [];
+
+  return { nodes, links };
 }
 
 function strArray(value: unknown, max: number): string[] {
@@ -293,6 +406,25 @@ function normalizeFollowup(raw: unknown): { question: string } | null {
   const question = typeof obj.question === "string" ? obj.question.trim() : "";
   if (!question) return null;
   return { question };
+}
+
+/** Validate + coerce the model's parsed JSON into a well-formed Insights. */
+function normalizeInsights(raw: unknown): Insights | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+  const headline = str(obj.headline);
+  const throughLine = str(obj.throughLine);
+  // The headline + through-line are the heart of the period reflection.
+  if (!headline || !throughLine) return null;
+
+  return {
+    headline,
+    throughLine,
+    shift: str(obj.shift),
+    question: str(obj.question),
+  };
 }
 
 /** Validate + coerce the model's parsed JSON into a well-formed Practice. */
@@ -401,7 +533,8 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
     }
 
     let transcript = "";
-    let mode: "reflection" | "insight" | "followup" | "practice" = "reflection";
+    let mode: "reflection" | "insight" | "insights" | "followup" | "practice" =
+      "reflection";
     let name = "";
     try {
       const body = await readBody(req);
@@ -412,6 +545,7 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
       };
       transcript = parsed.transcript ?? "";
       if (parsed.mode === "insight") mode = "insight";
+      else if (parsed.mode === "insights") mode = "insights";
       else if (parsed.mode === "followup") mode = "followup";
       else if (parsed.mode === "practice") mode = "practice";
       name = (parsed.name ?? "").trim();
@@ -468,6 +602,33 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
           return;
         }
         sendJson(res, 200, followup);
+        return;
+      }
+
+      if (mode === "insights") {
+        const userContent = `${
+          name ? `The person's name is ${name}. ` : ""
+        }Here is a digest of their journal entries from this time range (oldest to newest):\n\n${transcript}\n\nFind the through-line across these entries. Respond with ONLY the JSON object, no prose or markdown fences.`;
+
+        const result = await callClaude(
+          apiKey,
+          INSIGHTS_SYSTEM_PROMPT,
+          userContent,
+        );
+        if (!result.ok) {
+          sendJson(res, result.status, {
+            error: "Insights generation failed",
+            detail: result.detail,
+          });
+          return;
+        }
+
+        const insights = normalizeInsights(parseModelJson(result.text));
+        if (!insights) {
+          sendJson(res, 502, { error: "Model returned malformed insights" });
+          return;
+        }
+        sendJson(res, 200, insights);
         return;
       }
 

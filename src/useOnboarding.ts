@@ -12,10 +12,17 @@ const COMPLETE_KEY = "margo:onboardingComplete";
 
 function readName(): string {
   try {
-    return localStorage.getItem(NAME_KEY) ?? "";
+    const stored = localStorage.getItem(NAME_KEY);
+    if (stored) return stored;
   } catch {
-    return "";
+    // ignore (private mode / storage disabled) — fall through to default
   }
+  // When onboarding is skipped (e.g. prod demos), there's no captured name, so
+  // fall back to a configurable default. VITE_-prefixed for the client bundle.
+  if (import.meta.env.VITE_SKIP_ONBOARDING === "1") {
+    return import.meta.env.VITE_DEFAULT_NAME ?? "";
+  }
+  return "";
 }
 
 function readComplete(): boolean {

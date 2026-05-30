@@ -14,6 +14,7 @@ import { useOnboarding } from "./useOnboarding";
 import { useEntries, countWords } from "./useEntries";
 import { HistoryView } from "./HistoryView";
 import { EntryDetailView } from "./EntryDetailView";
+import { InsightsView } from "./InsightsView";
 import { type NavTab } from "./BottomNav";
 
 // The journaling entry always opens with this fixed prompt. The remaining
@@ -28,7 +29,8 @@ type Phase =
   | "reflection"
   | "practice"
   | "history"
-  | "historyDetail";
+  | "historyDetail"
+  | "insights";
 
 // Minimum time the white "preparing" loading screen shows, so the transition
 // into the reflection feels calm even if generation resolves quickly.
@@ -292,9 +294,10 @@ export const Frame = (): JSX.Element => {
   const selectedEntry =
     entries.find((entry) => entry.id === selectedEntryId) ?? null;
 
-  // The bottom nav is shown only on the history tab now — the home/entry
-  // screen uses a minimal bare history icon instead of the full tab bar.
-  const navTab: NavTab | null = phase === "history" ? "history" : null;
+  // The bottom nav / Home pill is shown on the history + insights tabs — the
+  // home/entry screen uses minimal bare icons instead of the full tab bar.
+  const navTab: NavTab | null =
+    phase === "history" || phase === "insights" ? "history" : null;
 
   // Live speech-to-text via ElevenLabs Scribe. Start a streaming session when
   // recording begins and tear it down when it stops. `useScribe` feeds results
@@ -569,6 +572,41 @@ export const Frame = (): JSX.Element => {
                   </motion.button>
                 )}
               </AnimatePresence>
+
+              {/* Symmetric insights affordance: a bare connected-nodes icon in
+                  the bottom-left corner, mirroring the history icon on the
+                  right (evokes patterns linking together). */}
+              <AnimatePresence>
+                {!started && (
+                  <motion.button
+                    key="insights-fab"
+                    type="button"
+                    onClick={() => setPhase("insights")}
+                    aria-label="Insights"
+                    initial={false}
+                    exit={{ opacity: 0 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="all-[unset] absolute bottom-8 left-7 box-border flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1c2b33]/40 transition-colors hover:text-[#1c2b33]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      stroke="currentColor"
+                      strokeWidth={1.7}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m7.5 7.8 3.4 2.1M13.1 14.1l-3.4 2.1M14.2 7.7l-2.6 3.4" />
+                      <circle cx="6" cy="6.5" r="2" />
+                      <circle cx="18" cy="6" r="2" />
+                      <circle cx="8.5" cy="17.5" r="2" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : phase === "loading" ? (
             // White "preparing" loading screen with an animated icon.
@@ -604,6 +642,7 @@ export const Frame = (): JSX.Element => {
               summary={reflection.summary}
               patterns={reflection.patterns}
               nextSteps={reflection.nextSteps}
+              pastEntries={entries}
               aiSpeaking={reflectionSpeaking}
               onSummaryComplete={() => setReflectionSpeaking(false)}
               onStartDailyPractice={handleStartDailyPractice}
@@ -620,10 +659,18 @@ export const Frame = (): JSX.Element => {
               entries={entries}
               onOpenEntry={handleOpenEntry}
             />
+          ) : phase === "insights" ? (
+            <InsightsView
+              key="insights"
+              entries={entries}
+              name={name}
+              onBack={handleBackHome}
+            />
           ) : selectedEntry ? (
             <EntryDetailView
               key="history-detail"
               entry={selectedEntry}
+              allEntries={entries}
               onBack={() => {
                 setSelectedEntryId(null);
                 setPhase("history");

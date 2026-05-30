@@ -10,7 +10,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { BulbAvatar } from "./BulbAvatar";
 import { MargoLogo } from "./MargoLogo";
 import { InsightCard } from "./InsightCard";
-import { EntryGraph, type GraphNode, type GraphLink, type Pt } from "./EntryGraph";
+import { EntryGraph } from "./EntryGraph";
+import type { AggregatedGraph, AggregatedNode, AggregatedLink } from "./graphModel";
+import type { GraphNodeType } from "./useReflection";
 import { useScribe } from "./useScribe";
 import { useMargoVoice } from "./useMargoVoice";
 import { useInsight, type Insight } from "./useInsight";
@@ -899,39 +901,52 @@ const MirrorStep = ({
 /* -------------------------------------------------------------------------- */
 /* Step 5 — Invitation: Atom Graph preview + the two CTAs.                    */
 /* -------------------------------------------------------------------------- */
-function graphFromInsight(insight: Insight): {
-  nodes: GraphNode[];
-  links: GraphLink[];
-} {
+function graphFromInsight(insight: Insight): AggregatedGraph {
   const labels = (insight.triggers.length ? insight.triggers : ["Pattern"])
     .map((t) => t.replace(/^you\s+/i, "").trim())
     .map((t) => (t.length > 28 ? t.slice(0, 27) + "…" : t))
     .slice(0, 4);
 
-  // Lay the themes out in a loose cluster and chain neighbors together so the
-  // graph reads as related ideas rather than spokes off a hub.
-  const spots: Pt[] = [
-    { x: -70, y: -46 },
-    { x: 64, y: -52 },
-    { x: -54, y: 58 },
-    { x: 72, y: 44 },
-  ];
-  const types: GraphNode["type"][] = ["emotion", "topic", "person", "emotion"];
-  const nodes: GraphNode[] = labels.map((label, i) => ({
+  const types: GraphNodeType[] = ["feeling", "situation", "person", "feeling"];
+  const nodes: AggregatedNode[] = labels.map((label, i) => ({
     id: `n${i}`,
     label,
     type: types[i % types.length],
-    pos: spots[i % spots.length],
+    count: 1,
+    entryCount: 1,
+    share: 1,
+    mentions: [],
+    lastSeen: Date.now(),
+    // The very first entry — everything on the map grew today.
+    newToday: true,
+    touchedToday: true,
   }));
+
   // Connect each theme to the next, and close the loop when there are 3+.
-  const links: GraphLink[] = [];
+  const links: AggregatedLink[] = [];
   for (let i = 0; i + 1 < labels.length; i += 1) {
-    links.push({ sourceId: `n${i}`, targetId: `n${i + 1}` });
+    links.push({
+      id: `n${i}__n${i + 1}`,
+      sourceId: `n${i}`,
+      targetId: `n${i + 1}`,
+      count: 1,
+      relations: [],
+      newToday: true,
+      touchedToday: true,
+    });
   }
   if (labels.length >= 3) {
-    links.push({ sourceId: `n${labels.length - 1}`, targetId: "n0" });
+    links.push({
+      id: `n0__n${labels.length - 1}`,
+      sourceId: `n${labels.length - 1}`,
+      targetId: "n0",
+      count: 1,
+      relations: [],
+      newToday: true,
+      touchedToday: true,
+    });
   }
-  return { nodes, links };
+  return { nodes, links, entryCount: 1, grewTodayCount: nodes.length };
 }
 
 const InvitationStep = ({
@@ -945,7 +960,7 @@ const InvitationStep = ({
   onStartNoticing: () => void;
   onSaveAndExit: () => void;
 }): JSX.Element => {
-  const { nodes, links } = useMemo(() => graphFromInsight(insight), [insight]);
+  const graph = useMemo(() => graphFromInsight(insight), [insight]);
 
   useEffect(() => {
     let cancelled = false;
@@ -977,7 +992,7 @@ const InvitationStep = ({
           transition={{ duration: 0.7, ease: EASE, delay: 0.2 }}
           className="overflow-hidden rounded-[24px] bg-white/80 p-2 shadow-[0_12px_36px_rgba(28,43,51,0.07)]"
         >
-          <EntryGraph nodes={nodes} links={links} title="First entry" height={220} />
+          <EntryGraph graph={graph} range="week" height={220} />
         </motion.div>
       </div>
 

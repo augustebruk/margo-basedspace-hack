@@ -1,6 +1,33 @@
 import { useCallback, useRef, useState } from "react";
 import type { ReflectionPattern } from "./ReflectionView";
 
+/* Specific, real-life entities the LLM extracts from an entry, so the atom
+ * graph maps actual people / situations / feelings the person mentioned — not
+ * abstract HR-speak. These are persisted per entry and aggregated across time
+ * into the cumulative knowledge graph (see graphModel.ts). */
+export type GraphNodeType = "person" | "situation" | "feeling";
+
+export interface GraphNodeSeed {
+  /** The concrete thing, in the user's words: "Marcus", "the Q3 deadline". */
+  label: string;
+  type: GraphNodeType;
+  /** A short verbatim snippet from the transcript this node came from. */
+  mention: string;
+}
+
+export interface GraphLinkSeed {
+  /** Matches a node label. */
+  source: string;
+  target: string;
+  /** A short human phrase for HOW they connect, e.g. "drains me". */
+  relation: string;
+}
+
+export interface EntryGraphSeed {
+  nodes: GraphNodeSeed[];
+  links: GraphLinkSeed[];
+}
+
 /** The data shape <ReflectionView/> consumes (sans presentational props). */
 export interface Reflection {
   /** Short AI-generated title for the entry (used in the history list). */
@@ -8,6 +35,8 @@ export interface Reflection {
   summary: string;
   patterns: ReflectionPattern[];
   nextSteps: string[];
+  /** Specific people/situations/feelings + how they relate, for the atom graph. */
+  graph: EntryGraphSeed;
 }
 
 const REFLECTION_ENDPOINT = "/api/reflection";
@@ -17,6 +46,7 @@ const EMPTY_REFLECTION: Reflection = {
   summary: "",
   patterns: [],
   nextSteps: [],
+  graph: { nodes: [], links: [] },
 };
 
 interface UseReflectionResult {
@@ -72,9 +102,21 @@ export function useReflection(): UseReflectionResult {
       }
 
       const data = (await res.json()) as Reflection;
-      if (id !== requestId.current) return data; // superseded
-      setReflection(data);
-      return data;
+      // Defensive: ensure the graph shape always exists even from older/mock
+      // responses, so downstream consumers (the atom graph) never crash.
+      const safe: Reflection = {
+        ...data,
+        graph:
+          data.graph && Array.isArray(data.graph.nodes)
+            ? {
+                nodes: data.graph.nodes ?? [],
+                links: Array.isArray(data.graph.links) ? data.graph.links : [],
+              }
+            : { nodes: [], links: [] },
+      };
+      if (id !== requestId.current) return safe; // superseded
+      setReflection(safe);
+      return safe;
     } catch (err) {
       return fail(
         err instanceof Error ? err.message : "Reflection request failed.",
