@@ -420,15 +420,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                     >
                       {userName}
                     </motion.p>
-                  ) : !onboardingListening ? (
-                    <motion.span
-                      key="hint"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className={`${subCls} text-[14px] mt-1`}
-                    >
-                      Getting mic ready…
-                    </motion.span>
                   ) : null}
                 </AnimatePresence>
                 {import.meta.env.DEV && (
@@ -475,15 +466,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                       className={`${subCls} text-[14px] mt-1`}
                     >
                       {retryMessage}
-                    </motion.span>
-                  ) : !onboardingListening ? (
-                    <motion.span
-                      key="hint"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className={`${subCls} text-[14px] mt-1`}
-                    >
-                      Getting mic ready…
                     </motion.span>
                   ) : null}
                 </AnimatePresence>
