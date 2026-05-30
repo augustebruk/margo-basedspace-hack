@@ -6,6 +6,7 @@ import {
   type JSX,
 } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
+import { EntryGraph } from "./EntryGraph";
 
 /* ============================================================================
  * Types — shape the AI output into these props. Plug real model output in
@@ -190,14 +191,14 @@ export const ReflectionView = ({
           )}
         </p>
 
-        {/* Patterns → next steps, staggered in after the reframe. */}
+        {/* Patterns → graph → next steps, staggered in after the reframe. */}
         <motion.div
           variants={container}
           initial="hidden"
           animate={contentRevealed ? "show" : "hidden"}
           className="mt-7 flex flex-col gap-7"
         >
-          {/* Patterns */}
+          {/* Patterns + connection graph */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Patterns</SectionTitle>
             <div className="flex flex-wrap gap-2">
@@ -216,6 +217,11 @@ export const ReflectionView = ({
                   )}
                 </span>
               ))}
+            </div>
+
+            {/* Obsidian-style graph of how this entry connects. */}
+            <div className="mt-1 overflow-hidden rounded-[20px] bg-white px-2 py-1 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
+              <EntryGraph />
             </div>
           </motion.section>
 
