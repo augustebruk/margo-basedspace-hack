@@ -329,6 +329,18 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                 <p className={`${subCls} text-[16px]`}>
                   What if your journal talked back?
                 </p>
+                {/* Legal disclaimer shown only on intro stage */}
+                <p className="mt-6 text-[13px] text-[#1c2b33]/50 [font-family:'Inter',Helvetica] font-normal leading-[1.5] max-w-[300px]">
+                  <span>By tapping &apos;Start Entry&apos; and using our app, you&apos;re agreeing to our </span>
+                  <a href={legalLinks[0].href} className="text-[#00b2ff] hover:underline">
+                    Terms of Service
+                  </a>
+                  <span> and </span>
+                  <a href={legalLinks[1].href} className="text-[#00b2ff] hover:underline">
+                    Privacy Policy
+                  </a>
+                  <span>.</span>
+                </p>
               </motion.div>
             )}
 
@@ -467,28 +479,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                 )}
               </AnimatePresence>
 
-              <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
-                <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                  By tapping &apos;Start Entry&apos; and using our app,
-                  you&apos;re agreeing to our{" "}
-                </span>
-                <a
-                  href={legalLinks[0].href}
-                  className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
-                >
-                  {legalLinks[0].label}
-                </a>
-                <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                  {" "}
-                  and{" "}
-                </span>
-                <a
-                  href={legalLinks[1].href}
-                  className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
-                >
-                  {legalLinks[1].label}
-                </a>
-              </p>
+              {/* Legal disclaimer moved to intro stage */}
             </motion.div>
           ) : (
             <motion.div
