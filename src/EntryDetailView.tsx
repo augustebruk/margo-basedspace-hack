@@ -97,14 +97,20 @@ export const EntryDetailView = ({
 
   // The map can be viewed two ways: just THIS entry's own graph, or the
   // cumulative all-time map as of this entry. Both treat this entry's date as
-  // "now" so its own nodes light up purple.
+  // "now" so its own nodes light up purple. In the "all time" view the wider
+  // life map is built as a grey backdrop and only the threads this entry
+  // touched (the same ones the "This entry" view lights up) stay purple.
   const [mapScope, setMapScope] = useState<"entry" | "all">("entry");
   const aggregated = useMemo(() => {
-    const upTo =
-      mapScope === "entry"
-        ? allEntries.filter((e) => e.createdAt === entry.createdAt)
-        : allEntries.filter((e) => e.createdAt <= entry.createdAt);
-    return buildAggregatedGraph(upTo, "all", { now: entry.createdAt });
+    if (mapScope === "entry") {
+      const own = allEntries.filter((e) => e.createdAt === entry.createdAt);
+      return buildAggregatedGraph(own, "all", { now: entry.createdAt });
+    }
+    const upTo = allEntries.filter((e) => e.createdAt <= entry.createdAt);
+    return buildAggregatedGraph(upTo, "all", {
+      now: entry.createdAt,
+      highlightRange: "today",
+    });
   }, [allEntries, entry.createdAt, mapScope]);
 
   return (
@@ -241,7 +247,7 @@ export const EntryDetailView = ({
           )}
           {/* Full-bleed, on the background — no card. */}
           <div className="-mx-5 mt-1">
-            <EntryGraph graph={aggregated} range="all" height={420} />
+            <EntryGraph graph={aggregated} range="all" height={220} />
           </div>
         </motion.section>
 

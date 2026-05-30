@@ -51,7 +51,7 @@ const COLORS: Record<GraphNodeType, { fill: string }> = {
   situation: { fill: "#a9bbdd" },
   feeling: { fill: "#dba9c6" },
 };
-const TODAY_FILL = "#8b5cf6"; // active / grew-today
+const TODAY_FILL = "#8b5cf6"; // active / in-range (the slice you're looking at)
 const TODAY_GLOW = "rgba(139,92,246,0.45)";
 const LABEL_COLOR = "#9b96aa"; // muted resting label
 const LABEL_ACTIVE = "#6d28d9";
@@ -76,6 +76,11 @@ interface SimNode extends AggregatedNode {
 function nodeRadius(count: number): number {
   return 3.5 + Math.min(count, 10) * 0.9;
 }
+
+/** Minimum tappable size for a node, regardless of how small its visible dot
+ * is. The coloured circle keeps its true size, centered inside this invisible
+ * hit target so even the smallest nodes are easy to tap/click. */
+const HIT_TARGET = 30;
 
 /* -------------------------------------------------------------------------- */
 /* Force layout — a tiny deterministic simulation (no d3 dependency):         */
@@ -551,6 +556,8 @@ export const EntryGraph = ({
             const active = lit;
             const r = nodeRadius(node.count) * view.k;
             const palette = COLORS[node.type];
+            // Lit nodes (the slice you're looking at) are purple; the wider
+            // backdrop keeps its muted per-type colour.
             const fill = lit ? TODAY_FILL : palette.fill;
             // Label scales gently with zoom and grows slightly for heavier /
             // active nodes — mirroring Obsidian's size-by-weight labels.
@@ -578,25 +585,39 @@ export const EntryGraph = ({
                   type="button"
                   aria-label={node.label}
                   onPointerDown={(e) => onNodePointerDown(e, node.id)}
-                  className="block shrink-0 rounded-full"
+                  className="flex shrink-0 items-center justify-center rounded-full bg-transparent"
                   style={{
-                    width: r * 2,
-                    height: r * 2,
+                    // Generous, invisible hit target so small dots are easy to
+                    // tap; the visible coloured circle stays its true size.
+                    width: Math.max(r * 2, HIT_TARGET),
+                    height: Math.max(r * 2, HIT_TARGET),
                     cursor: "grab",
-                    background: fill,
-                    transition: zooming
-                      ? "width 0.3s cubic-bezier(0.22,1,0.36,1), height 0.3s cubic-bezier(0.22,1,0.36,1)"
-                      : undefined,
-                    boxShadow: grewToday
-                      ? `0 0 ${14 * view.k}px ${TODAY_GLOW}`
-                      : isSel
-                        ? `0 0 ${10 * view.k}px rgba(139,92,246,0.35)`
-                        : "none",
                   }}
-                />
+                >
+                  <span
+                    className="block rounded-full"
+                    style={{
+                      width: r * 2,
+                      height: r * 2,
+                      background: fill,
+                      transition: zooming
+                        ? "width 0.3s cubic-bezier(0.22,1,0.36,1), height 0.3s cubic-bezier(0.22,1,0.36,1)"
+                        : undefined,
+                      boxShadow: grewToday
+                        ? `0 0 ${14 * view.k}px ${TODAY_GLOW}`
+                        : isSel
+                          ? `0 0 ${10 * view.k}px rgba(139,92,246,0.35)`
+                          : "none",
+                    }}
+                  />
+                </button>
                 <span
-                  className="pointer-events-none ml-1.5 max-w-[140px] truncate whitespace-nowrap [font-family:'Inter',Helvetica]"
+                  className="pointer-events-none max-w-[140px] truncate whitespace-nowrap [font-family:'Inter',Helvetica]"
                   style={{
+                    // Pull the label back toward the visible dot: the button's
+                    // invisible hit padding would otherwise push it away. 6px
+                    // keeps the original gap from the dot's edge.
+                    marginLeft: 6 - Math.max(HIT_TARGET - r * 2, 0) / 2,
                     fontSize: labelSize,
                     lineHeight: 1,
                     fontWeight: active ? 600 : 500,

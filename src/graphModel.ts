@@ -91,6 +91,42 @@ const linkKey = (a: string, b: string): string => {
   return `${x}__${y}`;
 };
 
+/** Bare time references that aren't real entities — just WHEN an entry happened
+ * ("today", "tonight", "this morning"). Older persisted entries may still carry
+ * these as nodes (before they were filtered upstream), so we drop them here too
+ * to keep a meaningless recurring "today" node off every map. */
+const TIME_WORD = new Set([
+  "today",
+  "tonight",
+  "tomorrow",
+  "yesterday",
+  "now",
+  "right now",
+  "lately",
+  "recently",
+  "morning",
+  "afternoon",
+  "evening",
+  "night",
+  "day",
+  "week",
+  "weekend",
+  "month",
+  "year",
+  "moment",
+  "time",
+]);
+
+function isTimeWordLabel(label: string): boolean {
+  const cleaned = label
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?,]+$/, "")
+    .replace(/^(the|a|an|this|that|these|those|last|next|each|every)\s+/, "")
+    .trim();
+  return TIME_WORD.has(cleaned);
+}
+
 interface SeededEntry {
   createdAt: number;
   graph: EntryGraphSeed;
@@ -158,6 +194,9 @@ export function buildAggregatedGraph(
     for (const seed of entry.graph.nodes) {
       const id = seed.label.trim().toLowerCase();
       if (!id) continue;
+      // Skip bare time references so a stray "today" node (from older persisted
+      // entries) never shows up on the map.
+      if (isTimeWordLabel(seed.label)) continue;
 
       let node = nodeMap.get(id);
       if (!node) {

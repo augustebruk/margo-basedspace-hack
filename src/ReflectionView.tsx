@@ -9,7 +9,7 @@ import { AnimatePresence, motion, type Variants } from "motion/react";
 import { EntryGraph } from "./EntryGraph";
 import { RangeToggle } from "./RangeToggle";
 import { PatternTags } from "./PatternTags";
-import { buildAggregatedGraph, type GraphRange } from "./graphModel";
+import { buildAggregatedGraph } from "./graphModel";
 import type { Entry } from "./useEntries";
 
 /* ============================================================================
@@ -75,17 +75,20 @@ export const ReflectionView = ({
   onSummaryComplete,
   onStartDailyPractice,
 }: ReflectionViewProps): JSX.Element => {
-  // Which span of life to map. Default to the week — the most actionable view.
-  const [range, setRange] = useState<GraphRange>("week");
-
-  // The cumulative atom graph: every entry's people/situations/feelings for
-  // the selected range. Tonight's entry is already persisted into
-  // `pastEntries` by the time we render, so it's included automatically (and
-  // its nodes light up purple as "new today").
-  const aggregated = useMemo(
-    () => buildAggregatedGraph(pastEntries, range),
-    [pastEntries, range],
-  );
+  // The map can be viewed two ways, just like a past entry's detail: just
+  // THIS entry's own graph, or the cumulative all-time map. Both treat the
+  // just-finished entry as "now" so its nodes light up purple as "new".
+  const [mapScope, setMapScope] = useState<"entry" | "all">("entry");
+  const aggregated = useMemo(() => {
+    // The just-finished entry is the most recent (prepended in useEntries).
+    const latest = pastEntries[0];
+    const now = latest?.createdAt ?? Date.now();
+    const upTo =
+      mapScope === "entry"
+        ? pastEntries.filter((e) => e.createdAt === now)
+        : pastEntries;
+    return buildAggregatedGraph(upTo, "all", { now });
+  }, [pastEntries, mapScope]);
 
   // Split the reframe into sentences for the progressive reveal. Empty until
   // the summary has actually been generated (the screen can appear first).
@@ -209,52 +212,64 @@ export const ReflectionView = ({
           </p>
         )}
 
-        {/* The living atom graph — revealed early (while patterns/steps still
-            wait on the reframe) so its loading state is visible as the entry
-            is processed. Big, full-bleed on the background. */}
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
-          className="mt-7 flex flex-col gap-3"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <SectionTitle>Your map</SectionTitle>
-            <RangeToggle value={range} onChange={setRange} />
-          </div>
-          {!mapLoading && aggregated.grewTodayCount > 0 && (
-            <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
-              <span className="font-semibold text-[#7c3aed]">
-                {aggregated.grewTodayCount} new{" "}
-                {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
-              </span>{" "}
-              grew from tonight — the purple nodes. Tap any node to see what
-              you said and how it connects.
-            </p>
-          )}
-          {/* Full-bleed: negative margins push past the px-5 page padding so
-              the graph reaches the screen edges, Obsidian-style. No card. */}
-          <div className="-mx-5 mt-1">
-            <EntryGraph
-              graph={aggregated}
-              range={range}
-              height={420}
-              loading={mapLoading}
-            />
-          </div>
-        </motion.section>
-
-        {/* Patterns + next steps, staggered in after the reframe. */}
+        {/* Patterns → graph → next steps, staggered in only AFTER the reframe
+            has fully revealed. Nothing here (including the map) is visible
+            while the summary is still animating in sentence by sentence. */}
         <motion.div
           variants={container}
           initial="hidden"
           animate={contentRevealed ? "show" : "hidden"}
-          className="mt-8 flex flex-col gap-8"
+          className="mt-7 flex flex-col gap-8"
         >
           {/* Patterns — bigger, insightful chips with real frequency. */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Patterns</SectionTitle>
-            <PatternTags patterns={patterns} graph={aggregated} range={range} />
+            <PatternTags patterns={patterns} graph={aggregated} range="all" />
+          </motion.section>
+
+          {/* The living atom graph — big, full-bleed on the background. */}
+          <motion.section variants={item} className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <SectionTitle>Your map</SectionTitle>
+              <RangeToggle
+                value={mapScope}
+                onChange={setMapScope}
+                options={[
+                  { id: "entry", label: "This entry" },
+                  { id: "all", label: "All time" },
+                ]}
+              />
+            </div>
+            {!mapLoading && aggregated.grewTodayCount > 0 && (
+              <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
+                {mapScope === "entry" ? (
+                  <>
+                    <span className="font-semibold text-[#7c3aed]">
+                      {aggregated.grewTodayCount} new{" "}
+                      {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
+                    </span>{" "}
+                    grew from tonight — the purple nodes. Tap any node to see
+                    what you said and how it connects.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-[#7c3aed]">Tonight</span>{" "}
+                    is lit up in purple against your wider map. Tap any node to
+                    see what you said and how it connects.
+                  </>
+                )}
+              </p>
+            )}
+            {/* Full-bleed: negative margins push past the px-5 page padding so
+                the graph reaches the screen edges, Obsidian-style. No card. */}
+            <div className="-mx-5 mt-1">
+              <EntryGraph
+                graph={aggregated}
+                range="all"
+                height={220}
+                loading={mapLoading}
+              />
+            </div>
           </motion.section>
 
           {/* Next steps */}

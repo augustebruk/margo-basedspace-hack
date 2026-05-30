@@ -51,7 +51,7 @@ Return STRICT JSON matching this TypeScript type, and nothing else:
   "nextSteps": string[],    // 2-3 tiny, concrete actions or experiments the user could try today. No platitudes.
   "graph": {                // the concrete people, situations, and feelings the person mentioned, and how they connect — for a living "atom map" of their life.
     "nodes": {              // 3-8 nodes. Extract the SPECIFIC, real things they named, not abstractions.
-      "label": string,      // the concrete thing in the user's own words: "Marcus", "my mom", "the Q3 deadline", "stuck". Short. Use a real name/word from what they said.
+      "label": string,      // the concrete thing in the user's own words: "Marcus", "my mom", "the Q3 deadline", "stuck". Short. Use a real name/word from what they said. NEVER create a node for a bare time reference like "today", "tonight", "this morning", "lately" — that's just WHEN the entry happened, not a real entity.
       "type": "person" | "situation" | "feeling", // person = a specific human; situation = an event/context/place/thing; feeling = an emotion or inner state.
       "mention": string     // ONE short verbatim (or lightly trimmed) snippet from what they said about this node.
     }[],
@@ -322,6 +322,43 @@ const GRAPH_TYPES: ReadonlySet<GraphNodeType> = new Set([
   "feeling",
 ]);
 
+/** Bare time references the model sometimes extracts as a "situation" or
+ * "feeling" ("today", "tonight", "this morning"). They aren't real entities —
+ * they're just when the entry happened — and they pollute every map with a
+ * meaningless recurring "today" node, so we drop any node that is purely one of
+ * these (optionally with a leading article/"this"/"that"/"last"/"next"). */
+const TIME_WORD = new Set([
+  "today",
+  "tonight",
+  "tomorrow",
+  "yesterday",
+  "now",
+  "right now",
+  "lately",
+  "recently",
+  "morning",
+  "afternoon",
+  "evening",
+  "night",
+  "day",
+  "week",
+  "weekend",
+  "month",
+  "year",
+  "moment",
+  "time",
+]);
+
+function isTimeWordLabel(label: string): boolean {
+  const cleaned = label
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?,]+$/, "")
+    .replace(/^(the|a|an|this|that|these|those|last|next|each|every)\s+/, "")
+    .trim();
+  return TIME_WORD.has(cleaned);
+}
+
 /** Validate + coerce the model's graph seed; drops malformed nodes/links and
  * keeps only links whose endpoints both resolve to a kept node. Always returns
  * a well-formed (possibly empty) seed so the atom map never crashes. */
@@ -340,6 +377,10 @@ function normalizeGraph(raw: unknown): EntryGraphSeed {
           const type = o.type;
           if (!label || typeof type !== "string" || !GRAPH_TYPES.has(type as GraphNodeType))
             return null;
+          // Drop bare time references ("today", "tonight") — they aren't real
+          // people/situations/feelings and otherwise show up as a node on
+          // every single map.
+          if (isTimeWordLabel(label)) return null;
           const key = label.toLowerCase();
           if (seenLabels.has(key)) return null; // de-dupe within an entry
           seenLabels.add(key);

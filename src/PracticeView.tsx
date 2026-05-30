@@ -404,20 +404,6 @@ export const PracticeView = ({
           }}
           aria-label="Save practice"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-            stroke="currentColor"
-            strokeWidth={1.9}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 10.5 12 3l9 7.5" />
-            <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
-          </svg>
           <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px]">
             Save practice
           </span>
