@@ -40,17 +40,17 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 /* Waveform — thin black bars inside the pill. Gentle motion while speaking,  */
 /* a very subtle idle drift when calm. Purely decorative.                     */
 /* -------------------------------------------------------------------------- */
-const BAR_COUNT = 16;
+const BAR_COUNT = 20;
 
 const Waveform = ({ active }: { active: boolean }): JSX.Element => (
-  <div className="flex h-4 items-center justify-center gap-[2px]">
+  <div className="flex h-6 items-center justify-center gap-[3px]">
     {Array.from({ length: BAR_COUNT }).map((_, i) => {
       const peak = 0.4 + 0.6 * Math.abs(Math.sin(i * 0.7 + 1));
       return (
         <motion.span
           key={i}
-          className="w-[2px] rounded-full bg-[#1c2b33]"
-          style={{ height: 14, originY: 0.5 }}
+          className="w-[3px] rounded-full bg-[#1c2b33]"
+          style={{ height: 24, originY: 0.5 }}
           animate={
             active
               ? { scaleY: [0.3, peak, 0.3] }
@@ -166,7 +166,7 @@ export const ReflectionView = ({
           initial={{ opacity: 0, scale: 0.82, y: -6 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.6, ease: EASE }}
-          className="inline-flex h-8 items-center rounded-full border border-[#D0D4DD] bg-white px-4"
+          className="inline-flex h-12 items-center rounded-full border border-[#D0D4DD] bg-white px-6"
         >
           <Waveform active={aiSpeaking} />
         </motion.div>
