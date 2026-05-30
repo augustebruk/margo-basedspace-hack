@@ -323,27 +323,35 @@ export const InsightsView = ({
             </motion.section>
           )}
 
-          {/* Top people + feelings. */}
-          {(data.topPeople.length > 0 || data.topFeelings.length > 0) && (
+          {/* Top people. */}
+          {data.topPeople.length > 0 && (
             <motion.section variants={item} className="mt-8 flex flex-col gap-5">
               <EntityRow title="People who came up" entities={data.topPeople} />
-              <EntityRow title="Feelings that recurred" entities={data.topFeelings} />
             </motion.section>
           )}
 
-          {/* The aggregated atom graph for the range. */}
+          {/* The aggregated atom graph — the full life map as a grey backdrop,
+              with the selected range lit up in purple. */}
           <motion.section variants={item} className="mt-8 flex flex-col gap-3">
             <SectionTitle>Your map</SectionTitle>
-            {data.graph.grewTodayCount > 0 && (
-              <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
-                <span className="font-semibold text-[#7c3aed]">
-                  {data.graph.grewTodayCount} new{" "}
-                  {data.graph.grewTodayCount === 1 ? "thread" : "threads"}
-                </span>{" "}
-                grew today — the purple nodes. Tap any node to see what you said
-                and how it connects.
-              </p>
-            )}
+            <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
+              {range === "today" ? (
+                <>
+                  <span className="font-semibold text-[#7c3aed]">Today</span> is
+                  lit up in purple against your wider map. Tap any node to see what
+                  you said and how it connects.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-[#7c3aed]">
+                    {rangeLabel(range)}
+                  </span>{" "}
+                  is lit up in purple — the rest is the grey backdrop of your
+                  wider map. Tap any node to see what you said and how it
+                  connects.
+                </>
+              )}
+            </p>
             <div className="-mx-5 mt-1">
               <EntryGraph graph={data.graph} range={range} height={420} />
             </div>

@@ -920,6 +920,7 @@ function graphFromInsight(insight: Insight): AggregatedGraph {
     // The very first entry — everything on the map grew today.
     newToday: true,
     touchedToday: true,
+    inRange: true,
   }));
 
   // Connect each theme to the next, and close the loop when there are 3+.
@@ -933,6 +934,7 @@ function graphFromInsight(insight: Insight): AggregatedGraph {
       relations: [],
       newToday: true,
       touchedToday: true,
+      inRange: true,
     });
   }
   if (labels.length >= 3) {
@@ -944,6 +946,7 @@ function graphFromInsight(insight: Insight): AggregatedGraph {
       relations: [],
       newToday: true,
       touchedToday: true,
+      inRange: true,
     });
   }
   return { nodes, links, entryCount: 1, grewTodayCount: nodes.length };

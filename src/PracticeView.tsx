@@ -1,4 +1,4 @@
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
 import type { Practice } from "./usePractice";
 
@@ -154,6 +154,13 @@ export const PracticeView = ({
     onSave?.(result);
     setSaved(true);
   };
+
+  // Once saved, return home after a short beat so the confirmation can be read.
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => onBackHome(), 3000);
+    return () => clearTimeout(t);
+  }, [saved, onBackHome]);
 
   return (
     <motion.div
@@ -370,8 +377,8 @@ export const PracticeView = ({
         )}
       </motion.div>
 
-      {/* Footer — primary "Save practice" + secondary "Back to home". */}
-      <div className="flex flex-col gap-2.5 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      {/* Footer — primary "Save practice" pill + secondary "Back to home". */}
+      <div className="flex flex-col items-center gap-2.5 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <AnimatePresence>
           {saved && (
             <motion.p
@@ -390,23 +397,30 @@ export const PracticeView = ({
         <button
           type="button"
           onClick={handleSave}
-          className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+          className="all-[unset] box-border inline-flex h-12 cursor-pointer items-center gap-2 rounded-full px-6 text-white shadow-[0_14px_34px_rgba(199,166,245,0.45)] transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5]"
+          style={{
+            background:
+              "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
+          }}
           aria-label="Save practice"
         >
-          Save practice
           <svg
-            aria-hidden="true"
-            width="18"
-            height="18"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             fill="none"
+            aria-hidden="true"
             stroke="currentColor"
-            strokeWidth={2}
+            strokeWidth={1.9}
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="m9 6 6 6-6 6" />
+            <path d="M3 10.5 12 3l9 7.5" />
+            <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
           </svg>
+          <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px]">
+            Save practice
+          </span>
         </button>
 
         <button
@@ -415,19 +429,6 @@ export const PracticeView = ({
           className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
           aria-label="Back to home"
         >
-          <svg
-            aria-hidden="true"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m15 6-6 6 6 6" />
-          </svg>
           Back to home
         </button>
       </div>

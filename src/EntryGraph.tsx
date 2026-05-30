@@ -43,17 +43,20 @@ export interface EntryGraphProps {
   loading?: boolean;
 }
 
-/* ---- Palette: light by default, vivid purple for "grew today". ---------- */
-const COLORS: Record<GraphNodeType, { ring: string; fill: string }> = {
-  person: { ring: "#c7a6f5", fill: "#f3ecff" },
-  situation: { ring: "#9db8e8", fill: "#eef3fd" },
-  feeling: { ring: "#ec9fc4", fill: "#fdeef5" },
+/* ---- Palette — Obsidian-style: small solid dots, muted by default, vivid
+ * purple for the active/"grew today" nodes. Dots are flat fills (no thick
+ * contrasting ring) so the map reads as a clean constellation. ------------- */
+const COLORS: Record<GraphNodeType, { fill: string }> = {
+  person: { fill: "#b9a3e0" },
+  situation: { fill: "#a9bbdd" },
+  feeling: { fill: "#dba9c6" },
 };
-const TODAY_RING = "#8b5cf6";
-const TODAY_FILL = "#a78bfa";
-const TODAY_GLOW = "rgba(139,92,246,0.55)";
-const EDGE = "#c7a6f5";
-const EDGE_TODAY = "#8b5cf6";
+const TODAY_FILL = "#8b5cf6"; // active / grew-today
+const TODAY_GLOW = "rgba(139,92,246,0.45)";
+const LABEL_COLOR = "#9b96aa"; // muted resting label
+const LABEL_ACTIVE = "#6d28d9";
+const EDGE = "#d8d4e2";
+const EDGE_TODAY = "#a78bdf";
 
 const MIN_SCALE = 0.3;
 const MAX_SCALE = 3;
@@ -67,10 +70,11 @@ interface SimNode extends AggregatedNode {
   vy: number;
 }
 
-/** Node radius grows with recurrence — the things they keep returning to read
- * as the heaviest nodes on the map. */
+/** Node radius grows with recurrence — but stays small and Obsidian-like:
+ * a modest base dot, growing gently so frequent entities read as slightly
+ * heavier without ballooning. */
 function nodeRadius(count: number): number {
-  return 7 + Math.min(count, 8) * 2.1;
+  return 3.5 + Math.min(count, 10) * 0.9;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -84,13 +88,24 @@ function nodeRadius(count: number): number {
 function simulate(
   nodes: SimNode[],
   links: { sourceId: string; targetId: string }[],
-  ticks = 320,
+  ticks = 480,
 ): void {
   if (nodes.length === 0) return;
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const linkRest = 78;
-  const charge = 2600;
-  const gravity = 0.012;
+  // A generous rest length + strong charge spread the map out like a "data
+  // fountain" so nodes breathe. Gravity is gentle so the cloud doesn't collapse
+  // back to the center.
+  const linkRest = 132;
+  const charge = 7200;
+  const gravity = 0.009;
+  // Labels sit to the RIGHT of each dot, so collisions are far more likely
+  // horizontally than vertically. We bias repulsion along x and run a hard
+  // anti-overlap pass that treats every node as a wide, label-sized box.
+  const xBias = 1.85;
+  // Approximate label footprint (world units, pre-zoom): dots get a wide slot
+  // to the right for their text plus padding above/below.
+  const labelW = 132;
+  const labelH = 30;
 
   for (let t = 0; t < ticks; t++) {
     const alpha = 0.12 * (1 - t / ticks);
@@ -108,7 +123,7 @@ function simulate(
         }
         const force = charge / dist2;
         const dist = Math.sqrt(dist2);
-        const fx = (dx / dist) * force;
+        const fx = (dx / dist) * force * xBias;
         const fy = (dy / dist) * force;
         a.vx += fx * alpha;
         a.vy += fy * alpha;
@@ -139,6 +154,40 @@ function simulate(
       n.x += n.vx;
       n.y += n.vy;
     }
+  }
+
+  // Hard de-overlap relaxation: treat each node + its right-hand label as an
+  // axis-aligned box and push overlapping boxes apart. A few passes guarantee
+  // labels never stack on top of each other, however dense the map gets.
+  for (let pass = 0; pass < 14; pass++) {
+    let moved = false;
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        // Box centers are offset to the right to cover the label.
+        const acx = a.x + labelW / 2;
+        const bcx = b.x + labelW / 2;
+        const dx = acx - bcx;
+        const dy = a.y - b.y;
+        const overlapX = labelW - Math.abs(dx);
+        const overlapY = labelH - Math.abs(dy);
+        if (overlapX > 0 && overlapY > 0) {
+          moved = true;
+          // Resolve along the axis of least penetration.
+          if (overlapX < overlapY) {
+            const push = (overlapX / 2 + 0.5) * (dx >= 0 ? 1 : -1);
+            a.x += push;
+            b.x -= push;
+          } else {
+            const push = (overlapY / 2 + 0.5) * (dy >= 0 ? 1 : -1);
+            a.y += push;
+            b.y -= push;
+          }
+        }
+      }
+    }
+    if (!moved) break;
   }
 }
 
@@ -172,12 +221,8 @@ export const EntryGraph = ({
   }, [graph]);
 
   const [positions, setPositions] = useState<Record<string, Pt>>(layout);
-  useEffect(() => {
-    setPositions(layout);
-    setSelected(null);
-  }, [layout]);
 
-  // View transform (pan x/y in screen px, zoom k). Centered on mount.
+  // View transform (pan x/y in screen px, zoom k). Auto-fit to frame all nodes.
   const [view, setView] = useState<Transform>({ x: 0, y: 0, k: 1 });
   const [size, setSize] = useState({ w: 360, h: height });
 
@@ -192,6 +237,67 @@ export const EntryGraph = ({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Compute the zoom/pan that frames the whole layout within the canvas with a
+  // comfortable margin, so the map fills its space instead of clustering small
+  // in the center with big empty bands. Returns the centered identity view when
+  // there's nothing to fit yet.
+  const computeFit = useCallback((): Transform => {
+    const ids = Object.keys(layout);
+    if (ids.length === 0 || size.w === 0 || size.h === 0)
+      return { x: 0, y: 0, k: 1 };
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of ids) {
+      const p = layout[id];
+      const r = nodeRadius(graph.nodes.find((n) => n.id === id)?.count ?? 1);
+      minX = Math.min(minX, p.x - r);
+      minY = Math.min(minY, p.y - r);
+      maxX = Math.max(maxX, p.x + r);
+      maxY = Math.max(maxY, p.y + r);
+    }
+    // Pad for node labels (which sit to the right of each dot) and breathing
+    // room. A touch extra on the sides so right-hand labels don't clip.
+    const padX = 56;
+    const padTop = 24;
+    const padBottom = 24;
+    const spanX = Math.max(maxX - minX, 1);
+    const spanY = Math.max(maxY - minY, 1);
+    const k = Math.min(
+      MAX_SCALE,
+      Math.max(
+        MIN_SCALE,
+        Math.min(
+          (size.w - padX * 2) / spanX,
+          (size.h - padTop - padBottom) / spanY,
+        ),
+      ),
+    );
+    // Center of the layout in world space.
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    // toScreen maps world (0,0) to canvas center + view offset; we want the
+    // layout center to land at the canvas center, so offset by -center * k.
+    return { x: -cx * k, y: -cy * k, k };
+  }, [layout, size.w, size.h, graph.nodes]);
+
+  // Re-fit whenever the layout or canvas size changes (new graph, resize),
+  // unless the user has taken over by panning/zooming this view.
+  const userAdjusted = useRef(false);
+  const [hasAdjusted, setHasAdjusted] = useState(false);
+  useEffect(() => {
+    setPositions(layout);
+    setSelected(null);
+    userAdjusted.current = false;
+    setHasAdjusted(false);
+  }, [layout]);
+
+  useEffect(() => {
+    if (userAdjusted.current) return;
+    setView(computeFit());
+  }, [computeFit]);
 
   // World → screen helper.
   const toScreen = useCallback(
@@ -248,6 +354,8 @@ export const EntryGraph = ({
         },
       }));
     } else {
+      userAdjusted.current = true;
+      setHasAdjusted(true);
       setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
     }
   };
@@ -271,6 +379,8 @@ export const EntryGraph = ({
     e.preventDefault();
     const el = containerRef.current;
     if (!el) return;
+    userAdjusted.current = true;
+    setHasAdjusted(true);
     const rect = el.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
@@ -291,7 +401,42 @@ export const EntryGraph = ({
     });
   };
 
-  const resetView = () => setView({ x: 0, y: 0, k: 1 });
+  const resetView = () => {
+    userAdjusted.current = false;
+    setHasAdjusted(false);
+    setZooming(true);
+    if (zoomTimer.current) window.clearTimeout(zoomTimer.current);
+    zoomTimer.current = window.setTimeout(() => setZooming(false), 320);
+    setView(computeFit());
+  };
+
+  // True briefly while a +/- button zoom is in flight, so we can apply a CSS
+  // transition to the node/edge positions for a smooth animated zoom (pan,
+  // drag and wheel stay instant for responsiveness).
+  const [zooming, setZooming] = useState(false);
+  const zoomTimer = useRef<number | null>(null);
+
+  // Step-zoom from the +/- buttons, anchored on the canvas center so the map
+  // grows/shrinks in place (mirrors the cursor-anchored wheel zoom).
+  const zoomBy = (factor: number) => {
+    userAdjusted.current = true;
+    setHasAdjusted(true);
+    setZooming(true);
+    if (zoomTimer.current) window.clearTimeout(zoomTimer.current);
+    zoomTimer.current = window.setTimeout(() => setZooming(false), 320);
+    setView((v) => {
+      const k = Math.min(MAX_SCALE, Math.max(MIN_SCALE, v.k * factor));
+      const ratio = k / v.k;
+      return { k, x: v.x * ratio, y: v.y * ratio };
+    });
+  };
+
+  useEffect(
+    () => () => {
+      if (zoomTimer.current) window.clearTimeout(zoomTimer.current);
+    },
+    [],
+  );
 
   // Neighbors of the selected node, for the highlight/dim interaction.
   const neighbors = useMemo(() => {
@@ -324,10 +469,10 @@ export const EntryGraph = ({
     return out;
   }, [selectedNode, graph.links, graph.nodes]);
 
-  const nodeDim = (id: string) => (selected && !neighbors.has(id) ? 0.22 : 1);
+  const nodeDim = (id: string) => (selected && !neighbors.has(id) ? 0.18 : 1);
   const edgeOpacity = (l: { sourceId: string; targetId: string }) => {
-    if (!selected) return 0.32;
-    return l.sourceId === selected || l.targetId === selected ? 0.85 : 0.05;
+    if (!selected) return 0.9;
+    return l.sourceId === selected || l.targetId === selected ? 1 : 0.06;
   };
 
   return (
@@ -363,16 +508,22 @@ export const EntryGraph = ({
               if (!a || !b) return null;
               const sa = toScreen(a);
               const sb = toScreen(b);
-              const today = l.touchedToday || l.newToday;
+              // The connection lights up purple when it belongs to the slice of
+              // time you're currently looking at; everything else is the grey
+              // backdrop of the wider life map.
+              const lit = l.inRange;
               return (
-                <line
+                <motion.line
                   key={l.id}
-                  x1={sa.x}
-                  y1={sa.y}
-                  x2={sb.x}
-                  y2={sb.y}
-                  stroke={today ? EDGE_TODAY : EDGE}
-                  strokeWidth={(today ? 1.8 : 1.1) * view.k}
+                  initial={false}
+                  animate={{ x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y }}
+                  transition={
+                    zooming
+                      ? { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
+                      : { duration: 0 }
+                  }
+                  stroke={lit ? EDGE_TODAY : EDGE}
+                  strokeWidth={(lit ? 1.3 : 0.9) * view.k}
                   strokeLinecap="round"
                   style={{
                     opacity: edgeOpacity(l),
@@ -383,67 +534,118 @@ export const EntryGraph = ({
             })}
           </svg>
 
-          {/* Nodes + labels — DOM so labels never clip on the edge. */}
+          {/* Nodes + labels — DOM so labels never clip on the edge. Each node
+              is a small solid dot with its label to the RIGHT, vertically
+              centered on the dot (Obsidian style), so labels line up with the
+              edges instead of stacking below. */}
           {graph.nodes.map((node) => {
             const p = positions[node.id];
             if (!p) return null;
             const s = toScreen(p);
             const isSel = selected === node.id;
-            const today = node.newToday || node.touchedToday;
+            const grewToday = node.newToday || node.touchedToday;
+            // "Lit" = this node belongs to the slice of time you're looking at.
+            // The rest of the map is a grey backdrop. Selecting a node also lights
+            // it. A glow is reserved for what actually grew today.
+            const lit = isSel || node.inRange;
+            const active = lit;
             const r = nodeRadius(node.count) * view.k;
             const palette = COLORS[node.type];
-            const ring = today ? TODAY_RING : palette.ring;
-            const fill = isSel || today ? TODAY_FILL : palette.fill;
+            const fill = lit ? TODAY_FILL : palette.fill;
+            // Label scales gently with zoom and grows slightly for heavier /
+            // active nodes — mirroring Obsidian's size-by-weight labels.
+            const labelSize =
+              (active ? 11.5 : 10.5 + Math.min(node.count, 6) * 0.25) *
+              Math.min(view.k, 1.5);
             return (
               <div
                 key={node.id}
-                className="absolute"
+                className="absolute flex items-center"
                 style={{
                   left: s.x,
                   top: s.y,
+                  // Anchor on the dot's vertical center; the row lays the dot +
+                  // label out horizontally so the label is centered on the line.
                   transform: "translate(-50%, -50%)",
                   opacity: nodeDim(node.id),
-                  transition: "opacity 0.25s ease",
-                  zIndex: isSel ? 5 : today ? 3 : 1,
+                  transition: zooming
+                    ? "opacity 0.25s ease, left 0.3s cubic-bezier(0.22,1,0.36,1), top 0.3s cubic-bezier(0.22,1,0.36,1)"
+                    : "opacity 0.25s ease",
+                  zIndex: isSel ? 5 : lit ? 3 : 1,
                 }}
               >
-                <div className="relative flex flex-col items-center">
-                  <button
-                    type="button"
-                    aria-label={node.label}
-                    onPointerDown={(e) => onNodePointerDown(e, node.id)}
-                    className="block rounded-full"
-                    style={{
-                      width: r * 2,
-                      height: r * 2,
-                      cursor: "grab",
-                      background: fill,
-                      border: `${(isSel ? 2.2 : today ? 1.8 : 1.3) * view.k}px solid ${ring}`,
-                      boxShadow: today
-                        ? `0 0 ${16 * view.k}px ${TODAY_GLOW}`
-                        : isSel
-                          ? `0 ${4 * view.k}px ${12 * view.k}px rgba(182,160,224,0.45)`
-                          : "none",
-                    }}
-                  />
-                  <span
-                    className="pointer-events-none mt-1 max-w-[130px] truncate whitespace-nowrap text-center [font-family:'Inter',Helvetica]"
-                    style={{
-                      fontSize: (today ? 11.5 : 10.5) * Math.min(view.k, 1.4),
-                      fontWeight: isSel || today ? 600 : 500,
-                      opacity: today ? 0.95 : 0.78,
-                      color: today ? "#6d28d9" : "#1c2b33",
-                    }}
-                  >
-                    {node.label}
-                  </span>
-                </div>
+                <button
+                  type="button"
+                  aria-label={node.label}
+                  onPointerDown={(e) => onNodePointerDown(e, node.id)}
+                  className="block shrink-0 rounded-full"
+                  style={{
+                    width: r * 2,
+                    height: r * 2,
+                    cursor: "grab",
+                    background: fill,
+                    transition: zooming
+                      ? "width 0.3s cubic-bezier(0.22,1,0.36,1), height 0.3s cubic-bezier(0.22,1,0.36,1)"
+                      : undefined,
+                    boxShadow: grewToday
+                      ? `0 0 ${14 * view.k}px ${TODAY_GLOW}`
+                      : isSel
+                        ? `0 0 ${10 * view.k}px rgba(139,92,246,0.35)`
+                        : "none",
+                  }}
+                />
+                <span
+                  className="pointer-events-none ml-1.5 max-w-[140px] truncate whitespace-nowrap [font-family:'Inter',Helvetica]"
+                  style={{
+                    fontSize: labelSize,
+                    lineHeight: 1,
+                    fontWeight: active ? 600 : 500,
+                    opacity: active ? 1 : 0.92,
+                    color: active ? LABEL_ACTIVE : LABEL_COLOR,
+                    transition: zooming
+                      ? "font-size 0.3s cubic-bezier(0.22,1,0.36,1)"
+                      : undefined,
+                  }}
+                >
+                  {node.label}
+                </span>
               </div>
             );
           })}
 
+          {/* Zoom controls — top-left, symmetric with Recenter. Matches its
+              pill style, blur, shadow and 11px scale. */}
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            className="absolute left-3 top-3 z-10 flex items-center overflow-hidden rounded-full bg-white/80 text-[#1c2b33]/60 shadow-[0_2px_8px_rgba(28,43,51,0.08)] backdrop-blur-sm"
+          >
+            <button
+              type="button"
+              aria-label="Zoom out"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => zoomBy(1 / 1.3)}
+              className="flex h-[26px] w-9 items-center justify-center text-[16px] font-medium leading-none transition hover:text-[#1c2b33]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                <path d="M5 12h14" />
+              </svg>
+            </button>
+            <span className="h-3.5 w-px bg-[#1c2b33]/10" />
+            <button
+              type="button"
+              aria-label="Zoom in"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => zoomBy(1.3)}
+              className="flex h-[26px] w-9 items-center justify-center text-[16px] font-medium leading-none transition hover:text-[#1c2b33]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
+
           {/* Recenter — only shown once the user has panned/zoomed. */}
-          {(view.x !== 0 || view.y !== 0 || view.k !== 1) && (
+          {hasAdjusted && (
             <button
               type="button"
               onPointerDown={(e) => e.stopPropagation()}
@@ -494,13 +696,14 @@ const TYPE_LABEL: Record<GraphNodeType, string> = {
 /* than empty or broken.                                                       */
 /* -------------------------------------------------------------------------- */
 function GraphLoading({ range }: { range: GraphRange }): JSX.Element {
-  // Fixed seed positions (relative to center) for a gentle constellation.
+  // Fixed seed positions (relative to center) for a gentle constellation —
+  // small flat dots matching the live Obsidian-style graph.
   const nodes = [
-    { x: 0, y: 0, r: 17, c: "#f3ecff", ring: "#c7a6f5" },
-    { x: -74, y: -42, r: 12, c: "#eef3fd", ring: "#9db8e8" },
-    { x: 70, y: -30, r: 13, c: "#fdeef5", ring: "#ec9fc4" },
-    { x: 52, y: 58, r: 11, c: "#f3ecff", ring: "#c7a6f5" },
-    { x: -60, y: 56, r: 10, c: "#fdeef5", ring: "#ec9fc4" },
+    { x: 0, y: 0, r: 9, c: TODAY_FILL },
+    { x: -74, y: -42, r: 5, c: "#a9bbdd" },
+    { x: 70, y: -30, r: 5.5, c: "#dba9c6" },
+    { x: 52, y: 58, r: 4.5, c: "#b9a3e0" },
+    { x: -60, y: 56, r: 4, c: "#dba9c6" },
   ];
   const links: [number, number][] = [
     [0, 1],
@@ -552,9 +755,8 @@ function GraphLoading({ range }: { range: GraphRange }): JSX.Element {
               height: n.r * 2,
               transform: "translate(-50%, -50%)",
               background: n.c,
-              border: `1.3px solid ${n.ring}`,
             }}
-            animate={{ scale: [1, 1.12, 1], opacity: [0.55, 1, 0.55] }}
+            animate={{ scale: [1, 1.12, 1], opacity: [0.45, 0.9, 0.45] }}
             transition={{
               duration: 1.6,
               ease: "easeInOut",

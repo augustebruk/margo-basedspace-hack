@@ -38,6 +38,10 @@ export interface AggregatedNode {
   newToday: boolean;
   /** True if today's entry mentioned it again (reinforced today). */
   touchedToday: boolean;
+  /** True if it was mentioned within the currently-selected range. The map
+   * shows the whole life graph as a grey backdrop and lights up the slice
+   * belonging to the range you're looking at. */
+  inRange: boolean;
 }
 
 export interface AggregatedLink {
@@ -50,6 +54,8 @@ export interface AggregatedLink {
   relations: string[];
   newToday: boolean;
   touchedToday: boolean;
+  /** True if this connection appeared within the currently-selected range. */
+  inRange: boolean;
 }
 
 export interface AggregatedGraph {
@@ -94,14 +100,30 @@ interface SeededEntry {
  * Build the cumulative graph from a list of entries (each carrying its
  * per-entry graph seed), filtered to the selected time range. `extra` lets the
  * live reflection screen fold in the just-finished entry before it's persisted.
+ *
+ * When `highlightRange` is set, the graph is built over the FULL history (so the
+ * whole life map shows as a grey backdrop) and only nodes/links touched within
+ * that range are flagged `inRange` — those are what the map lights up in purple.
+ * When it's omitted, the graph is hard-filtered to `range` (the classic
+ * behavior used by per-entry reflection), and everything in it is `inRange`.
  */
 export function buildAggregatedGraph(
   entries: Entry[],
   range: GraphRange,
-  options: { now?: number; extra?: SeededEntry | null } = {},
+  options: {
+    now?: number;
+    extra?: SeededEntry | null;
+    /** Build the full backdrop and only highlight this range. */
+    highlightRange?: GraphRange;
+  } = {},
 ): AggregatedGraph {
   const now = options.now ?? Date.now();
-  const from = rangeStart(range, now);
+  const highlight = options.highlightRange;
+  // The hard window that gates which entries enter the graph at all. With a
+  // highlight range we keep the whole history; otherwise we filter to `range`.
+  const from = highlight ? rangeStart("all", now) : rangeStart(range, now);
+  // The window that decides what lights up (purple) on the map.
+  const highlightFrom = highlight ? rangeStart(highlight, now) : from;
 
   const seeded: SeededEntry[] = [
     ...entries
@@ -112,8 +134,13 @@ export function buildAggregatedGraph(
     seeded.push(options.extra);
   }
 
-  const inRange = seeded.filter((e) => e.createdAt >= from && e.createdAt <= now);
-  const entryCount = inRange.length;
+  const inWindow = seeded.filter(
+    (e) => e.createdAt >= from && e.createdAt <= now,
+  );
+  // entryCount + share are computed over the HIGHLIGHTED slice so frequency
+  // labels stay meaningful ("4× this week"), not diluted by the backdrop.
+  const highlighted = inWindow.filter((e) => e.createdAt >= highlightFrom);
+  const entryCount = highlighted.length;
 
   const nodeMap = new Map<string, AggregatedNode>();
   const linkMap = new Map<string, AggregatedLink>();
@@ -122,16 +149,15 @@ export function buildAggregatedGraph(
 
   // Process oldest → newest so "most recent first" arrays end correctly when we
   // unshift, and lastSeen lands on the latest.
-  const ordered = [...inRange].sort((a, b) => a.createdAt - b.createdAt);
+  const ordered = [...inWindow].sort((a, b) => a.createdAt - b.createdAt);
 
   for (const entry of ordered) {
     const today = isToday(entry.createdAt, now);
-    const labelToId = new Map<string, string>();
+    const within = entry.createdAt >= highlightFrom;
 
     for (const seed of entry.graph.nodes) {
       const id = seed.label.trim().toLowerCase();
       if (!id) continue;
-      labelToId.set(seed.label, id);
 
       let node = nodeMap.get(id);
       if (!node) {
@@ -146,17 +172,22 @@ export function buildAggregatedGraph(
           lastSeen: entry.createdAt,
           newToday: today, // first appearance is today ⇒ brand new today
           touchedToday: false,
+          inRange: false,
         };
         nodeMap.set(id, node);
         nodeEntrySets.set(id, new Set());
       }
-      node.count += 1;
+      // count / mentions / share / entryCount reflect the highlighted slice.
+      if (within) {
+        node.count += 1;
+        const m = seed.mention?.trim();
+        if (m && !node.mentions.includes(m)) node.mentions.unshift(m);
+        nodeEntrySets.get(id)!.add(entry.createdAt);
+        node.inRange = true;
+      }
       node.label = seed.label.trim(); // keep latest casing
       node.lastSeen = Math.max(node.lastSeen, entry.createdAt);
       if (today) node.touchedToday = true;
-      const m = seed.mention?.trim();
-      if (m && !node.mentions.includes(m)) node.mentions.unshift(m);
-      nodeEntrySets.get(id)!.add(entry.createdAt);
     }
 
     for (const link of entry.graph.links) {
@@ -174,17 +205,21 @@ export function buildAggregatedGraph(
           relations: [],
           newToday: today,
           touchedToday: false,
+          inRange: false,
         };
         linkMap.set(key, agg);
       }
-      agg.count += 1;
+      if (within) {
+        agg.count += 1;
+        agg.inRange = true;
+      }
       if (today) agg.touchedToday = true;
       const rel = link.relation?.trim();
       if (rel && !agg.relations.includes(rel)) agg.relations.unshift(rel);
     }
   }
 
-  // Finalize entryCount + share.
+  // Finalize entryCount + share (over the highlighted slice).
   for (const [id, node] of nodeMap) {
     node.entryCount = nodeEntrySets.get(id)?.size ?? 0;
     node.share = entryCount > 0 ? node.entryCount / entryCount : 0;

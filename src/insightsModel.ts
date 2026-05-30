@@ -124,7 +124,14 @@ export function computeRangeInsights(
   now: number = Date.now(),
 ): RangeInsights {
   const inRange = entriesInRange(allEntries, range, now);
-  const graph = buildAggregatedGraph(allEntries, range, { now });
+  // The map shows the full life graph as a grey backdrop and lights up the
+  // slice that belongs to the selected range (purple). Stats / top entities
+  // below read off the in-range slice of that same graph.
+  const graph = buildAggregatedGraph(allEntries, range, {
+    now,
+    highlightRange: range,
+  });
+  const rangeNodes = graph.nodes.filter((n) => n.inRange);
 
   const totalMs = inRange.reduce((sum, e) => sum + (e.durationMs || 0), 0);
   const totalWords = inRange.reduce((sum, e) => sum + (e.wordCount || 0), 0);
@@ -151,9 +158,9 @@ export function computeRangeInsights(
     totalWords,
     streak: dayStreak(inRange, now),
     busiestTime,
-    topPeople: topByType(graph.nodes, "person", range, 3),
-    topFeelings: topByType(graph.nodes, "feeling", range, 3),
-    topSituations: topByType(graph.nodes, "situation", range, 3),
+    topPeople: topByType(rangeNodes, "person", range, 3),
+    topFeelings: topByType(rangeNodes, "feeling", range, 3),
+    topSituations: topByType(rangeNodes, "situation", range, 3),
   };
 }
 
