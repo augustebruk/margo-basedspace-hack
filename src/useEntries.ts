@@ -75,6 +75,8 @@ interface UseEntriesResult {
   entries: Entry[];
   /** Persist a new entry and return it (id + createdAt filled in). */
   addEntry: (entry: Omit<Entry, "id" | "createdAt">) => Entry;
+  /** Remove a single saved entry by id. */
+  deleteEntry: (id: string) => void;
   /** Remove every saved entry. */
   clear: () => void;
 }
@@ -102,10 +104,18 @@ export function useEntries(): UseEntriesResult {
     [],
   );
 
+  const deleteEntry = useCallback((id: string) => {
+    setEntries((prev) => {
+      const next = prev.filter((entry) => entry.id !== id);
+      writeEntries(next);
+      return next;
+    });
+  }, []);
+
   const clear = useCallback(() => {
     setEntries([]);
     writeEntries([]);
   }, []);
 
-  return { entries, addEntry, clear };
+  return { entries, addEntry, deleteEntry, clear };
 }

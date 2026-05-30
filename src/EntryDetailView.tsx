@@ -3,7 +3,7 @@ import { motion, type Variants } from "motion/react";
 import { EntryGraph } from "./EntryGraph";
 import { RangeToggle } from "./RangeToggle";
 import { PatternTags } from "./PatternTags";
-import { buildAggregatedGraph, type GraphRange } from "./graphModel";
+import { buildAggregatedGraph } from "./graphModel";
 import type { Entry } from "./useEntries";
 import { formatDay, formatDuration, formatTime } from "./entryFormat";
 
@@ -18,6 +18,8 @@ export interface EntryDetailViewProps {
   /** All saved entries, to rebuild the cumulative map as of this entry. */
   allEntries: Entry[];
   onBack: () => void;
+  /** Permanently remove this entry. */
+  onDelete: () => void;
 }
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -84,20 +86,26 @@ export const EntryDetailView = ({
   entry,
   allEntries,
   onBack,
+  onDelete,
 }: EntryDetailViewProps): JSX.Element => {
   const turns = useMemo(
     () => parseTranscript(entry.transcript),
     [entry.transcript],
   );
   const { reflection } = entry;
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  // The map as of this entry: aggregate every entry up to and including this
-  // one, treating this entry's date as "now" so its own nodes light up purple.
-  const [range, setRange] = useState<GraphRange>("week");
+  // The map can be viewed two ways: just THIS entry's own graph, or the
+  // cumulative all-time map as of this entry. Both treat this entry's date as
+  // "now" so its own nodes light up purple.
+  const [mapScope, setMapScope] = useState<"entry" | "all">("entry");
   const aggregated = useMemo(() => {
-    const upTo = allEntries.filter((e) => e.createdAt <= entry.createdAt);
-    return buildAggregatedGraph(upTo, range, { now: entry.createdAt });
-  }, [allEntries, entry.createdAt, range]);
+    const upTo =
+      mapScope === "entry"
+        ? allEntries.filter((e) => e.createdAt === entry.createdAt)
+        : allEntries.filter((e) => e.createdAt <= entry.createdAt);
+    return buildAggregatedGraph(upTo, "all", { now: entry.createdAt });
+  }, [allEntries, entry.createdAt, mapScope]);
 
   return (
     <motion.div
@@ -206,13 +214,20 @@ export const EntryDetailView = ({
             <PatternTags
               patterns={reflection.patterns}
               graph={aggregated}
-              range={range}
+              range="all"
             />
           )}
 
           <div className="mt-3 flex items-center justify-between gap-3">
             <SectionTitle>Your map</SectionTitle>
-            <RangeToggle value={range} onChange={setRange} />
+            <RangeToggle
+              value={mapScope}
+              onChange={setMapScope}
+              options={[
+                { id: "entry", label: "This entry" },
+                { id: "all", label: "All time" },
+              ]}
+            />
           </div>
           {aggregated.grewTodayCount > 0 && (
             <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
@@ -226,7 +241,7 @@ export const EntryDetailView = ({
           )}
           {/* Full-bleed, on the background — no card. */}
           <div className="-mx-5 mt-1">
-            <EntryGraph graph={aggregated} range={range} height={420} />
+            <EntryGraph graph={aggregated} range="all" height={420} />
           </div>
         </motion.section>
 
@@ -249,6 +264,58 @@ export const EntryDetailView = ({
             </ul>
           </motion.section>
         )}
+
+        {/* Delete this entry. Two-tap confirm so it isn't triggered by accident. */}
+        <motion.section variants={item} className="mt-10 flex flex-col gap-2.5">
+          {confirmingDelete ? (
+            <div className="flex flex-col gap-2.5">
+              <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/60">
+                Delete this entry? This can't be undone.
+              </p>
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="all-[unset] box-border flex-1 cursor-pointer rounded-[14px] bg-[#e5484d] py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-medium text-white hover:bg-[#d33a3f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5484d]"
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="all-[unset] box-border flex-1 cursor-pointer rounded-[14px] bg-white/70 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-medium text-[#1c2b33]/75 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="all-[unset] box-border inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[14px] py-3 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#e5484d]/80 hover:text-[#e5484d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5484d]"
+              aria-label="Delete this entry"
+            >
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 6h18" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+              Delete entry
+            </button>
+          )}
+        </motion.section>
       </motion.div>
     </motion.div>
   );

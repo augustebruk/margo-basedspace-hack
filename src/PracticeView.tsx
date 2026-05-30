@@ -387,28 +387,47 @@ export const PracticeView = ({
           )}
         </AnimatePresence>
 
-        <motion.button
+        <button
           type="button"
           onClick={handleSave}
-          whileTap={{ scale: 0.97, boxShadow: "0 6px 16px rgba(199,166,245,0.30)" }}
-          className="all-[unset] box-border flex h-14 w-full cursor-pointer items-center justify-center rounded-full shadow-[0_14px_34px_rgba(199,166,245,0.45)]"
-          style={{
-            background:
-              "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
-          }}
+          className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
           aria-label="Save practice"
         >
-          <span className="[font-family:'Inter',Helvetica] text-[16px] font-semibold tracking-[-0.2px] text-white">
-            Save practice
-          </span>
-        </motion.button>
+          Save practice
+          <svg
+            aria-hidden="true"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
 
         <button
           type="button"
           onClick={onBackHome}
-          className="all-[unset] box-border flex h-11 w-full cursor-pointer items-center justify-center rounded-full [font-family:'Inter',Helvetica] text-[15px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+          className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
           aria-label="Back to home"
         >
+          <svg
+            aria-hidden="true"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m15 6-6 6 6 6" />
+          </svg>
           Back to home
         </button>
       </div>

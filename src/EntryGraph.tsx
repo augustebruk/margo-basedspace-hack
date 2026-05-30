@@ -39,6 +39,8 @@ export interface EntryGraphProps {
   range: GraphRange;
   /** Pixel height of the interactive canvas. */
   height?: number;
+  /** When true, show a loading state instead of the graph/empty placeholder. */
+  loading?: boolean;
 }
 
 /* ---- Palette: light by default, vivid purple for "grew today". ---------- */
@@ -144,6 +146,7 @@ export const EntryGraph = ({
   graph,
   range,
   height = 360,
+  loading = false,
 }: EntryGraphProps): JSX.Element => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -340,7 +343,9 @@ export const EntryGraph = ({
       role="img"
       aria-label="Interactive map of the people, situations and feelings you keep mentioning, and how they connect. Drag to move, scroll to zoom, tap a node for details."
     >
-      {graph.nodes.length === 0 ? (
+      {loading ? (
+        <GraphLoading range={range} />
+      ) : graph.nodes.length === 0 ? (
         <div className="flex h-full w-full items-center justify-center px-10 text-center">
           <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/45">
             Your map starts here. As you journal, the people, situations and
@@ -481,6 +486,90 @@ const TYPE_LABEL: Record<GraphNodeType, string> = {
   situation: "Situation",
   feeling: "Feeling",
 };
+
+/* -------------------------------------------------------------------------- */
+/* GraphLoading — a calm "weaving your map" state shown while the reflection   */
+/* (and its graph seed) is still being generated. A few faint nodes orbit and  */
+/* pulse, with links drawing between them, so the area reads as alive rather   */
+/* than empty or broken.                                                       */
+/* -------------------------------------------------------------------------- */
+function GraphLoading({ range }: { range: GraphRange }): JSX.Element {
+  // Fixed seed positions (relative to center) for a gentle constellation.
+  const nodes = [
+    { x: 0, y: 0, r: 17, c: "#f3ecff", ring: "#c7a6f5" },
+    { x: -74, y: -42, r: 12, c: "#eef3fd", ring: "#9db8e8" },
+    { x: 70, y: -30, r: 13, c: "#fdeef5", ring: "#ec9fc4" },
+    { x: 52, y: 58, r: 11, c: "#f3ecff", ring: "#c7a6f5" },
+    { x: -60, y: 56, r: 10, c: "#fdeef5", ring: "#ec9fc4" },
+  ];
+  const links: [number, number][] = [
+    [0, 1],
+    [0, 2],
+    [0, 3],
+    [0, 4],
+  ];
+  const span = range === "month" ? "month" : range === "today" ? "day" : "week";
+
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-5">
+      <div className="relative" style={{ width: 220, height: 170 }}>
+        <svg
+          className="absolute inset-0"
+          width={220}
+          height={170}
+          viewBox="-110 -85 220 170"
+        >
+          {links.map(([a, b], i) => (
+            <motion.line
+              key={i}
+              x1={nodes[a].x}
+              y1={nodes[a].y}
+              x2={nodes[b].x}
+              y2={nodes[b].y}
+              stroke={EDGE}
+              strokeWidth={1.2}
+              strokeLinecap="round"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 0.45 }}
+              transition={{
+                duration: 1.1,
+                ease: "easeInOut",
+                repeat: Infinity,
+                repeatType: "reverse",
+                delay: i * 0.18,
+              }}
+            />
+          ))}
+        </svg>
+        {nodes.map((n, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full"
+            style={{
+              left: 110 + n.x,
+              top: 85 + n.y,
+              width: n.r * 2,
+              height: n.r * 2,
+              transform: "translate(-50%, -50%)",
+              background: n.c,
+              border: `1.3px solid ${n.ring}`,
+            }}
+            animate={{ scale: [1, 1.12, 1], opacity: [0.55, 1, 0.55] }}
+            transition={{
+              duration: 1.6,
+              ease: "easeInOut",
+              repeat: Infinity,
+              delay: i * 0.22,
+            }}
+          />
+        ))}
+      </div>
+      <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/45">
+        Weaving your {span} into a map…
+      </p>
+    </div>
+  );
+}
 
 /* -------------------------------------------------------------------------- */
 /* NodeInsight — the tap-to-read sheet. Surfaces the actual things the person  */

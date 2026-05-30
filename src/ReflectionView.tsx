@@ -32,6 +32,8 @@ export interface ReflectionViewProps {
   nextSteps: string[];
   /** All saved entries (incl. the one just finished), to aggregate the map. */
   pastEntries: Entry[];
+  /** True while the reflection (and its graph seed) is still generating. */
+  mapLoading?: boolean;
   /** @deprecated No longer used — the voice bar/waveform was removed. */
   aiSpeaking?: boolean;
   /** Called once the summary has fully revealed (parent calms the wave). */
@@ -69,6 +71,7 @@ export const ReflectionView = ({
   patterns,
   nextSteps,
   pastEntries,
+  mapLoading = false,
   onSummaryComplete,
   onStartDailyPractice,
 }: ReflectionViewProps): JSX.Element => {
@@ -84,10 +87,15 @@ export const ReflectionView = ({
     [pastEntries, range],
   );
 
-  // Split the reframe into sentences for the progressive reveal.
+  // Split the reframe into sentences for the progressive reveal. Empty until
+  // the summary has actually been generated (the screen can appear first).
+  const hasSummary = summary.trim().length > 0;
   const sentences = useMemo(
-    () => summary.match(/[^.!?]+[.!?]+(\s|$)/g)?.map((s) => s.trim()) ?? [summary],
-    [summary],
+    () =>
+      hasSummary
+        ? summary.match(/[^.!?]+[.!?]+(\s|$)/g)?.map((s) => s.trim()) ?? [summary]
+        : [],
+    [summary, hasSummary],
   );
 
   const [visible, setVisible] = useState(0); // sentences revealed so far
@@ -100,9 +108,9 @@ export const ReflectionView = ({
     onCompleteRef.current = onSummaryComplete;
   }, [onSummaryComplete]);
 
-  // Reveal one sentence at a time.
+  // Reveal one sentence at a time (once the summary exists).
   useEffect(() => {
-    if (visible >= sentences.length) return;
+    if (sentences.length === 0 || visible >= sentences.length) return;
     const delay = visible === 0 ? 350 : 1500;
     const t = setTimeout(() => setVisible((v) => v + 1), delay);
     return () => clearTimeout(t);
@@ -111,7 +119,12 @@ export const ReflectionView = ({
   // Once the reframe is fully revealed: calm the wave, then flow the rest in.
   const completedRef = useRef(false);
   useEffect(() => {
-    if (visible < sentences.length || completedRef.current) return;
+    if (
+      sentences.length === 0 ||
+      visible < sentences.length ||
+      completedRef.current
+    )
+      return;
     completedRef.current = true;
     onCompleteRef.current?.();
     const t = setTimeout(() => setContentRevealed(true), 350);
@@ -138,56 +151,110 @@ export const ReflectionView = ({
 
       {/* ---- Scrollable reflection content (min-h-0 so the footer stays) ---- */}
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-14 pb-6">
-        {/* Reframe — the spoken reflection, revealed sentence by sentence. */}
-        <p className="[font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
-          {sentences.map((s, i) =>
-            i < visible ? (
-              <motion.span
-                key={i}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-              >
-                {s}{" "}
-              </motion.span>
-            ) : null,
-          )}
-        </p>
+        {/* Reframe — the spoken reflection, revealed sentence by sentence.
+            While it's still being written, a gentle shimmer holds the space. */}
+        {!hasSummary ? (
+          mapLoading ? (
+            <div aria-live="polite" className="flex flex-col gap-3">
+              <span className="sr-only">Writing your reflection…</span>
+              <motion.div
+                aria-hidden="true"
+                className="h-[19px] w-[88%] rounded-full bg-[#1c2b33]/10"
+                animate={{ opacity: [0.4, 0.85, 0.4] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div
+                aria-hidden="true"
+                className="h-[19px] w-[72%] rounded-full bg-[#1c2b33]/10"
+                animate={{ opacity: [0.4, 0.85, 0.4] }}
+                transition={{
+                  duration: 1.4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.2,
+                }}
+              />
+              <motion.div
+                aria-hidden="true"
+                className="h-[19px] w-[54%] rounded-full bg-[#1c2b33]/10"
+                animate={{ opacity: [0.4, 0.85, 0.4] }}
+                transition={{
+                  duration: 1.4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.4,
+                }}
+              />
+            </div>
+          ) : (
+            <p className="[font-family:'Inter',Helvetica] text-[17px] font-normal leading-[1.5] text-[#1c2b33]/55">
+              We couldn’t put your reflection into words this time. Your map
+              below still holds what you said.
+            </p>
+          )
+        ) : (
+          <p className="[font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
+            {sentences.map((s, i) =>
+              i < visible ? (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                >
+                  {s}{" "}
+                </motion.span>
+              ) : null,
+            )}
+          </p>
+        )}
 
-        {/* Patterns → graph → next steps, staggered in after the reframe. */}
+        {/* The living atom graph — revealed early (while patterns/steps still
+            wait on the reframe) so its loading state is visible as the entry
+            is processed. Big, full-bleed on the background. */}
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
+          className="mt-7 flex flex-col gap-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <SectionTitle>Your map</SectionTitle>
+            <RangeToggle value={range} onChange={setRange} />
+          </div>
+          {!mapLoading && aggregated.grewTodayCount > 0 && (
+            <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
+              <span className="font-semibold text-[#7c3aed]">
+                {aggregated.grewTodayCount} new{" "}
+                {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
+              </span>{" "}
+              grew from tonight — the purple nodes. Tap any node to see what
+              you said and how it connects.
+            </p>
+          )}
+          {/* Full-bleed: negative margins push past the px-5 page padding so
+              the graph reaches the screen edges, Obsidian-style. No card. */}
+          <div className="-mx-5 mt-1">
+            <EntryGraph
+              graph={aggregated}
+              range={range}
+              height={420}
+              loading={mapLoading}
+            />
+          </div>
+        </motion.section>
+
+        {/* Patterns + next steps, staggered in after the reframe. */}
         <motion.div
           variants={container}
           initial="hidden"
           animate={contentRevealed ? "show" : "hidden"}
-          className="mt-7 flex flex-col gap-8"
+          className="mt-8 flex flex-col gap-8"
         >
           {/* Patterns — bigger, insightful chips with real frequency. */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Patterns</SectionTitle>
             <PatternTags patterns={patterns} graph={aggregated} range={range} />
-          </motion.section>
-
-          {/* The living atom graph — big, full-bleed on the background. */}
-          <motion.section variants={item} className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <SectionTitle>Your map</SectionTitle>
-              <RangeToggle value={range} onChange={setRange} />
-            </div>
-            {aggregated.grewTodayCount > 0 && (
-              <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
-                <span className="font-semibold text-[#7c3aed]">
-                  {aggregated.grewTodayCount} new{" "}
-                  {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
-                </span>{" "}
-                grew from tonight — the purple nodes. Tap any node to see what
-                you said and how it connects.
-              </p>
-            )}
-            {/* Full-bleed: negative margins push past the px-5 page padding so
-                the graph reaches the screen edges, Obsidian-style. No card. */}
-            <div className="-mx-5 mt-1">
-              <EntryGraph graph={aggregated} range={range} height={420} />
-            </div>
           </motion.section>
 
           {/* Next steps */}
@@ -213,7 +280,7 @@ export const ReflectionView = ({
       {/* ---- Primary CTA — appears after the content has loaded ---- */}
       <div className="flex justify-center px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <AnimatePresence>
-          {contentRevealed && (
+          {(contentRevealed || (!mapLoading && !hasSummary)) && (
             <motion.button
               type="button"
               onClick={onStartDailyPractice}

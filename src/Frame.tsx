@@ -67,7 +67,7 @@ export const Frame = (): JSX.Element => {
   const [reflectionSpeaking, setReflectionSpeaking] = useState(false);
 
   // Past entries (persisted) + which one is open in the detail view.
-  const { entries, addEntry } = useEntries();
+  const { entries, addEntry, deleteEntry } = useEntries();
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   // When the current session started, to compute its duration on finish.
   const entryStartedAt = useRef<number>(0);
@@ -96,7 +96,7 @@ export const Frame = (): JSX.Element => {
   // Accumulated journal: each Q&A turn the user spoke this session. Fed to the
   // reflection generator when the entry finishes.
   const transcriptLog = useRef<string[]>([]);
-  const { reflection, generate: generateReflection } = useReflection();
+  const { reflection, generating: generatingReflection, generate: generateReflection } = useReflection();
   const { next: generateFollowup } = useFollowup();
   // Tonight's personalized, therapy-grounded practice, generated from the same
   // transcript as the reflection (in parallel, during the loading screen).
@@ -199,8 +199,10 @@ export const Frame = (): JSX.Element => {
   };
 
   // Finish entry → stop recording, capture the final turn, then run the
-  // minimum loading time and reflection generation in parallel; advance to the
-  // reflection only once both have settled.
+  // minimum loading time and reflection generation in parallel. The full-screen
+  // loader only waits for the SUMMARY text (needed for the reflection screen to
+  // have something to reveal); the map then shows its own loading state until
+  // the rest of generation (the graph seed) settles and the entry is persisted.
   const handleFinishEntry = useCallback((alreadyRecorded = false) => {
     if (isRecording) setIsRecording(false);
     if (!alreadyRecorded && personTranscript)
@@ -220,8 +222,19 @@ export const Frame = (): JSX.Element => {
     // not on the critical path to the reflection screen — by the time the user
     // taps "Start daily practice" it's typically ready (falls back otherwise).
     if (transcript.trim()) void generatePractice(transcript, name);
-    void Promise.all([minDelay, generation]).then(([, generated]) => {
-      // Persist the finished session so it appears in the History tab.
+
+    // Show the reflection screen once the minimum loading beat has passed —
+    // even if generation is still in flight. The summary area and the map then
+    // show their own loading states (driven by `generatingReflection`) until
+    // the model responds.
+    void minDelay.then(() => {
+      setReflectionSpeaking(true);
+      setPhase("reflection");
+    });
+
+    // When generation settles, persist the finished session so it appears in
+    // the History tab — and so its graph seed feeds the (until-now loading) map.
+    void generation.then((generated) => {
       if (transcript.trim() && generated.summary) {
         addEntry({
           topic: generated.topic || "Journal entry",
@@ -231,8 +244,6 @@ export const Frame = (): JSX.Element => {
           reflection: generated,
         });
       }
-      setReflectionSpeaking(true);
-      setPhase("reflection");
     });
   }, [
     addEntry,
@@ -367,7 +378,7 @@ export const Frame = (): JSX.Element => {
                       id="activate-agent-title"
                       className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.2] whitespace-nowrap pb-px"
                     >
-                      {name ? "Welcome back, Sara" : "Activate Agent"}
+                      {name ? `Welcome back, ${name}` : "Welcome"}
                     </h1>
                     <p className="max-w-[280px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[21px] text-[#1c2b33]/50">
                       {name
@@ -599,10 +610,9 @@ export const Frame = (): JSX.Element => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <path d="m7.5 7.8 3.4 2.1M13.1 14.1l-3.4 2.1M14.2 7.7l-2.6 3.4" />
-                      <circle cx="6" cy="6.5" r="2" />
-                      <circle cx="18" cy="6" r="2" />
-                      <circle cx="8.5" cy="17.5" r="2" />
+                      <line x1="6" y1="20" x2="6" y2="13" />
+                      <line x1="12" y1="20" x2="12" y2="4" />
+                      <line x1="18" y1="20" x2="18" y2="9" />
                     </svg>
                   </motion.button>
                 )}
@@ -643,6 +653,7 @@ export const Frame = (): JSX.Element => {
               patterns={reflection.patterns}
               nextSteps={reflection.nextSteps}
               pastEntries={entries}
+              mapLoading={generatingReflection}
               aiSpeaking={reflectionSpeaking}
               onSummaryComplete={() => setReflectionSpeaking(false)}
               onStartDailyPractice={handleStartDailyPractice}
@@ -672,6 +683,11 @@ export const Frame = (): JSX.Element => {
               entry={selectedEntry}
               allEntries={entries}
               onBack={() => {
+                setSelectedEntryId(null);
+                setPhase("history");
+              }}
+              onDelete={() => {
+                deleteEntry(selectedEntry.id);
                 setSelectedEntryId(null);
                 setPhase("history");
               }}

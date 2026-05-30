@@ -212,8 +212,9 @@ export const InsightsView = ({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M4 19V5" />
-              <path d="m7 14 3-3 3 2 4-5" />
+              <line x1="6" y1="20" x2="6" y2="13" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="18" y1="20" x2="18" y2="9" />
             </svg>
           </span>
           <p className="[font-family:'Inter',Helvetica] text-[19px] font-medium tracking-[-0.3px] text-[#1c2b33]">
