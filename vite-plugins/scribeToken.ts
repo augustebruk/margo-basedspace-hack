@@ -23,11 +23,19 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-export function scribeTokenPlugin(apiKey: string | undefined): Plugin {
-  const handler: Connect.NextHandleFunction = async (req, res, next) => {
+/**
+ * Framework-agnostic handler for the scribe-token route. Returns `true` if it
+ * handled the request, `false` if the URL doesn't match (so the caller can
+ * fall through). Reused by both the Vite middleware (dev/preview) and the
+ * production Express server.
+ */
+export function createScribeTokenHandler(apiKey: string | undefined) {
+  return async function handle(
+    req: { url?: string },
+    res: ServerResponse,
+  ): Promise<boolean> {
     if (!req.url || !req.url.startsWith(TOKEN_PATH)) {
-      next();
-      return;
+      return false;
     }
 
     if (!apiKey) {
@@ -35,7 +43,7 @@ export function scribeTokenPlugin(apiKey: string | undefined): Plugin {
         error:
           "ELEVENLABS_API_KEY is not set. Add it to a .env file (no VITE_ prefix) and restart the dev server.",
       });
-      return;
+      return true;
     }
 
     try {
@@ -50,13 +58,13 @@ export function scribeTokenPlugin(apiKey: string | undefined): Plugin {
           error: "Failed to mint ElevenLabs token",
           detail,
         });
-        return;
+        return true;
       }
 
       const data = (await response.json()) as { token?: string };
       if (!data.token) {
         sendJson(res, 502, { error: "ElevenLabs response had no token" });
-        return;
+        return true;
       }
 
       sendJson(res, 200, { token: data.token });
@@ -66,15 +74,25 @@ export function scribeTokenPlugin(apiKey: string | undefined): Plugin {
         detail: err instanceof Error ? err.message : String(err),
       });
     }
+    return true;
+  };
+}
+
+export function scribeTokenPlugin(apiKey: string | undefined): Plugin {
+  const handle = createScribeTokenHandler(apiKey);
+  const middleware: Connect.NextHandleFunction = (req, res, next) => {
+    void handle(req, res).then((handled) => {
+      if (!handled) next();
+    });
   };
 
   return {
     name: "margo-scribe-token",
     configureServer(server) {
-      server.middlewares.use(handler);
+      server.middlewares.use(middleware);
     },
     configurePreviewServer(server) {
-      server.middlewares.use(handler);
+      server.middlewares.use(middleware);
     },
   };
 }

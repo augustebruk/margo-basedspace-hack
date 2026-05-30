@@ -7,8 +7,10 @@ you — a summary, the patterns she noticed, a personalized practice, and an
 "atom graph" that connects the people, situations, and feelings you keep
 mentioning across entries.
 
-There is **no app backend**, but several features are backed by real AI through
-small Vite dev/preview proxies (the keys stay server-side):
+There is **no separate app backend**, but several features are backed by real
+AI through small server-side proxies (the keys stay server-side). In **dev**
+these run as Vite dev/preview middleware; in **production** the same request
+handlers run inside a tiny Node server (`server.ts`, started with `npm start`):
 
 - **Speech-to-text** — ElevenLabs Scribe v2 Realtime (live transcription).
 - **Text-to-speech** — ElevenLabs TTS (Margo's spoken voice during onboarding).
@@ -25,7 +27,8 @@ npm install
 npm run dev                     # Vite dev server, http://localhost:5173
 npm run dev -- --host 0.0.0.0   # expose outside a container (Cloud Agent VMs)
 npm run build                   # tsc -b && vite build (the typecheck + build gate)
-npm run preview                 # serve the production bundle
+npm run preview                 # serve the production bundle (Vite preview)
+npm start                       # production: build first, then run server.ts (serves dist + /api/*)
 ```
 
 There is **no lint, formatter, or test runner configured** — `npm run build` is
@@ -71,3 +74,40 @@ app falls back to built-in mocks so the flow always works for demos.
 
 See `CLAUDE.md` for the full architecture, the AI proxy contracts, and where to
 plug in a real backend.
+
+## Deploying to production
+
+> [!IMPORTANT]
+> The `/api/*` routes (`/api/scribe-token`, `/api/tts`, `/api/reflection`) need a
+> **running Node process**. A purely static deploy (uploading only `dist/` to
+> static hosting like Hostinger's "Vite" static preset) will serve the UI but
+> **404 on every `/api/*` call** — that's why speech-to-text shows
+> "Token request failed (404)" and Margo has no voice. The keys you set in a
+> static host are build-time only and nothing reads them at runtime.
+
+Deploy it as a **Node app**, not a static site:
+
+```bash
+npm ci
+npm run build      # produces dist/
+npm start          # serves dist/ AND /api/* on $PORT (default 3000, host 0.0.0.0)
+```
+
+`server.ts` serves the built SPA from `dist/` (with history-API fallback) and
+handles the `/api/*` routes using the **same** handlers as the Vite middleware,
+so dev and prod behave identically.
+
+**Environment variables** must be set in the runtime process (not just at build
+time): `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` (optional), `ANTHROPIC_API_KEY`,
+and optionally `PORT` / `HOST`. The server auto-loads a `.env` file if present.
+
+On **Hostinger**, use the **Node.js application** hosting (VPS or Node hosting),
+not the static "Vite" preset:
+
+- **Application startup command:** `npm start`
+- **Build command:** `npm run build`
+- **Node version:** 22.x
+- **Env vars:** add `ELEVENLABS_API_KEY` and `ANTHROPIC_API_KEY` (and optional
+  `ELEVENLABS_VOICE_ID`) in the app's environment settings. Hostinger sets `PORT`;
+  the server reads it automatically. Put the app behind Hostinger's HTTPS proxy
+  (a TLS/HTTPS origin is required for microphone access in the browser).

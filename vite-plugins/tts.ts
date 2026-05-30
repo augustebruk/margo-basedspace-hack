@@ -40,20 +40,22 @@ async function readBody(req: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-export function ttsPlugin(
+export function createTtsHandler(
   apiKey: string | undefined,
   voiceId: string | undefined,
-): Plugin {
+) {
   const voice = voiceId?.trim() || DEFAULT_VOICE_ID;
 
-  const handler: Connect.NextHandleFunction = async (req, res, next) => {
+  return async function handle(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<boolean> {
     if (!req.url || !req.url.startsWith(TTS_PATH)) {
-      next();
-      return;
+      return false;
     }
     if (req.method !== "POST") {
       sendJson(res, 405, { error: "Method not allowed" });
-      return;
+      return true;
     }
     // Signal "not configured" so the client falls back to a timed silent no-op.
     if (!apiKey) {
@@ -61,7 +63,7 @@ export function ttsPlugin(
         error:
           "ELEVENLABS_API_KEY is not set. Add it to a .env file (no VITE_ prefix) and restart the dev server.",
       });
-      return;
+      return true;
     }
 
     let text = "";
@@ -70,11 +72,11 @@ export function ttsPlugin(
       text = (JSON.parse(body) as { text?: string }).text ?? "";
     } catch {
       sendJson(res, 400, { error: "Invalid JSON body" });
-      return;
+      return true;
     }
     if (!text.trim()) {
       sendJson(res, 400, { error: "Empty text" });
-      return;
+      return true;
     }
 
     try {
@@ -98,7 +100,7 @@ export function ttsPlugin(
           error: "Text-to-speech failed",
           detail,
         });
-        return;
+        return true;
       }
 
       const audio = Buffer.from(await response.arrayBuffer());
@@ -112,15 +114,28 @@ export function ttsPlugin(
         detail: err instanceof Error ? err.message : String(err),
       });
     }
+    return true;
+  };
+}
+
+export function ttsPlugin(
+  apiKey: string | undefined,
+  voiceId: string | undefined,
+): Plugin {
+  const handle = createTtsHandler(apiKey, voiceId);
+  const middleware: Connect.NextHandleFunction = (req, res, next) => {
+    void handle(req, res).then((handled) => {
+      if (!handled) next();
+    });
   };
 
   return {
     name: "margo-tts",
     configureServer(server) {
-      server.middlewares.use(handler);
+      server.middlewares.use(middleware);
     },
     configurePreviewServer(server) {
-      server.middlewares.use(handler);
+      server.middlewares.use(middleware);
     },
   };
 }

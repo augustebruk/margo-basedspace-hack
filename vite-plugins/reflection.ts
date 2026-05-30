@@ -554,15 +554,17 @@ async function callClaude(
   return { ok: true, text };
 }
 
-export function reflectionPlugin(apiKey: string | undefined): Plugin {
-  const handler: Connect.NextHandleFunction = async (req, res, next) => {
+export function createReflectionHandler(apiKey: string | undefined) {
+  return async function handle(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<boolean> {
     if (!req.url || !req.url.startsWith(REFLECTION_PATH)) {
-      next();
-      return;
+      return false;
     }
     if (req.method !== "POST") {
       sendJson(res, 405, { error: "Method not allowed" });
-      return;
+      return true;
     }
     // Signal "not configured" so the client can fall back to its mock.
     if (!apiKey) {
@@ -570,7 +572,7 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
         error:
           "ANTHROPIC_API_KEY is not set. Add it to a .env file (no VITE_ prefix) and restart the dev server.",
       });
-      return;
+      return true;
     }
 
     let transcript = "";
@@ -592,11 +594,11 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
       name = (parsed.name ?? "").trim();
     } catch {
       sendJson(res, 400, { error: "Invalid JSON body" });
-      return;
+      return true;
     }
     if (!transcript.trim()) {
       sendJson(res, 400, { error: "Empty transcript" });
-      return;
+      return true;
     }
 
     try {
@@ -611,16 +613,16 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
             error: "Insight generation failed",
             detail: result.detail,
           });
-          return;
+          return true;
         }
 
         const insight = normalizeInsight(parseModelJson(result.text));
         if (!insight) {
           sendJson(res, 502, { error: "Model returned malformed insight" });
-          return;
+          return true;
         }
         sendJson(res, 200, insight);
-        return;
+        return true;
       }
 
       if (mode === "followup") {
@@ -634,16 +636,16 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
             error: "Follow-up generation failed",
             detail: result.detail,
           });
-          return;
+          return true;
         }
 
         const followup = normalizeFollowup(parseModelJson(result.text));
         if (!followup) {
           sendJson(res, 502, { error: "Model returned malformed follow-up" });
-          return;
+          return true;
         }
         sendJson(res, 200, followup);
-        return;
+        return true;
       }
 
       if (mode === "insights") {
@@ -661,16 +663,16 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
             error: "Insights generation failed",
             detail: result.detail,
           });
-          return;
+          return true;
         }
 
         const insights = normalizeInsights(parseModelJson(result.text));
         if (!insights) {
           sendJson(res, 502, { error: "Model returned malformed insights" });
-          return;
+          return true;
         }
         sendJson(res, 200, insights);
-        return;
+        return true;
       }
 
       if (mode === "practice") {
@@ -689,16 +691,16 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
             error: "Practice generation failed",
             detail: result.detail,
           });
-          return;
+          return true;
         }
 
         const practice = normalizePractice(parseModelJson(result.text));
         if (!practice) {
           sendJson(res, 502, { error: "Model returned malformed practice" });
-          return;
+          return true;
         }
         sendJson(res, 200, practice);
-        return;
+        return true;
       }
 
       const result = await callClaude(
@@ -711,7 +713,7 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
           error: "Reflection generation failed",
           detail: result.detail,
         });
-        return;
+        return true;
       }
 
       // The model returns the JSON object directly; parseModelJson tolerates
@@ -719,7 +721,7 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
       const reflection = normalize(parseModelJson(result.text));
       if (!reflection) {
         sendJson(res, 502, { error: "Model returned malformed reflection" });
-        return;
+        return true;
       }
 
       sendJson(res, 200, reflection);
@@ -729,15 +731,25 @@ export function reflectionPlugin(apiKey: string | undefined): Plugin {
         detail: err instanceof Error ? err.message : String(err),
       });
     }
+    return true;
+  };
+}
+
+export function reflectionPlugin(apiKey: string | undefined): Plugin {
+  const handle = createReflectionHandler(apiKey);
+  const middleware: Connect.NextHandleFunction = (req, res, next) => {
+    void handle(req, res).then((handled) => {
+      if (!handled) next();
+    });
   };
 
   return {
     name: "margo-reflection",
     configureServer(server) {
-      server.middlewares.use(handler);
+      server.middlewares.use(middleware);
     },
     configurePreviewServer(server) {
-      server.middlewares.use(handler);
+      server.middlewares.use(middleware);
     },
   };
 }
