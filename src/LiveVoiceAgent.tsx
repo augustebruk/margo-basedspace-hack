@@ -7,42 +7,35 @@ interface LiveVoiceAgentProps {
   onTranscript?: (text: string) => void;
 }
 
-const float32ToPcm16 = (float32Array: Float32Array): Int16Array => {
-  const pcm16 = new Int16Array(float32Array.length);
-  for (let i = 0; i < float32Array.length; i++) {
-    const clamp = Math.max(-1, Math.min(1, float32Array[i]));
-    pcm16[i] = clamp < 0 ? clamp * 32768 : clamp * 32767;
+/* ───── Audio helpers ───── */
+
+const float32ToPcm16 = (float32: Float32Array): Int16Array => {
+  const pcm16 = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]));
+    pcm16[i] = s < 0 ? s * 32768 : s * 32767;
   }
   return pcm16;
 };
 
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+const arrayBufferToBase64 = (buf: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
 };
 
-const base64ToFloat32 = (base64: string): Float32Array => {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  
-  // Reinterpret as Int16 (little-endian)
-  const int16Array = new Int16Array(bytes.buffer);
-  
-  // Convert to float32
-  const float32Array = new Float32Array(int16Array.length);
-  for (let i = 0; i < int16Array.length; i++) {
-    float32Array[i] = int16Array[i] / 32768;
-  }
-  
-  return float32Array;
+const base64ToFloat32 = (b64: string): Float32Array => {
+  const raw = atob(b64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const int16 = new Int16Array(bytes.buffer);
+  const out = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) out[i] = int16[i] / 32768;
+  return out;
 };
+
+/* ───── Component ───── */
 
 export const LiveVoiceAgent = ({
   onAiSpeakingChange,
@@ -55,116 +48,135 @@ export const LiveVoiceAgent = ({
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [personSpeaking, setPersonSpeaking] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState("");
+  const [userTranscript, setUserTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const playbackContextRef = useRef<AudioContext | null>(null);
-  const audioQueueRef = useRef<AudioBuffer[]>([]);
-  const isPlayingRef = useRef(false);
+  const playCtxRef = useRef<AudioContext | null>(null);
+  const nextPlayTimeRef = useRef(0);
 
-  // Notify parent of state changes
+  // Store callbacks in refs so the WS handler always sees the latest
+  const cbRefs = useRef({ onAiSpeakingChange, onPersonSpeakingChange, onQuestion, onTranscript });
   useEffect(() => {
-    onAiSpeakingChange?.(aiSpeaking);
-  }, [aiSpeaking, onAiSpeakingChange]);
+    cbRefs.current = { onAiSpeakingChange, onPersonSpeakingChange, onQuestion, onTranscript };
+  });
 
-  useEffect(() => {
-    onPersonSpeakingChange?.(personSpeaking);
-  }, [personSpeaking, onPersonSpeakingChange]);
+  // Bubble state to parent
+  useEffect(() => { cbRefs.current.onAiSpeakingChange?.(aiSpeaking); }, [aiSpeaking]);
+  useEffect(() => { cbRefs.current.onPersonSpeakingChange?.(personSpeaking); }, [personSpeaking]);
+  useEffect(() => { cbRefs.current.onTranscript?.(userTranscript); }, [userTranscript]);
 
-  useEffect(() => {
-    onTranscript?.(currentTranscript);
-  }, [currentTranscript, onTranscript]);
+  /* ── Audio playback ── */
 
-  // Log connection state for debugging
-  useEffect(() => {
-    console.log("[LiveVoiceAgent] isConnected:", isConnected);
-  }, [isConnected]);
+  const scheduleAudio = useCallback((b64: string) => {
+    if (!playCtxRef.current) playCtxRef.current = new AudioContext({ sampleRate: 24000 });
+    const ctx = playCtxRef.current;
+    const samples = base64ToFloat32(b64);
+    const buf = ctx.createBuffer(1, samples.length, 24000);
+    buf.getChannelData(0).set(samples);
 
-  // Connect to backend WebSocket
-  const connect = useCallback(() => {
-    setError(null);
-    try {
-      const wsUrl = `ws://${window.location.hostname}:8787`;
-      console.log("[LiveVoiceAgent] Connecting to", wsUrl);
-      
-      const ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        console.log("[LiveVoiceAgent] Connected to backend");
-        setIsConnected(true);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-
-          if (msg.type === "connected") {
-            console.log("[LiveVoiceAgent] Backend connection confirmed");
-            setIsConnected(true);
-          } else if (msg.type === "text" && msg.text) {
-            console.log("[LiveVoiceAgent] AI text:", msg.text);
-            setCurrentTranscript(msg.text);
-            onQuestion?.(msg.text);
-            setAiSpeaking(true);
-          } else if (msg.type === "audio" && msg.data) {
-            console.log("[LiveVoiceAgent] Received AI audio chunk");
-            // Queue for playback (24kHz PCM16)
-            scheduleAudioPlayback(msg.data);
-          } else if (msg.type === "turnComplete") {
-            console.log("[LiveVoiceAgent] Turn complete");
-            setAiSpeaking(false);
-          } else if (msg.type === "error") {
-            console.error("[LiveVoiceAgent] Server error:", msg.message);
-            setError(msg.message);
-          }
-        } catch (err) {
-          console.error("[LiveVoiceAgent] Message parse error:", err);
-        }
-      };
-
-      ws.onerror = (err) => {
-        console.error("[LiveVoiceAgent] WebSocket error:", err);
-        setError("Connection error");
-      };
-
-      ws.onclose = () => {
-        console.log("[LiveVoiceAgent] Disconnected from backend");
-        setIsConnected(false);
-        setIsMicActive(false);
-        stopRecording();
-      };
-
-      wsRef.current = ws;
-    } catch (err: any) {
-      console.error("[LiveVoiceAgent] Connection failed:", err.message);
-      setError(err.message);
-    }
+    const now = ctx.currentTime;
+    const start = Math.max(now, nextPlayTimeRef.current);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(start);
+    nextPlayTimeRef.current = start + buf.duration;
   }, []);
 
-  // Disconnect from backend WebSocket
-  const disconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    setIsConnected(false);
+  /* ── Stop recording ── */
+
+  const stopRecording = useCallback(() => {
+    processorRef.current?.disconnect();
+    sourceRef.current?.disconnect();
+    audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setPersonSpeaking(false);
     setIsMicActive(false);
   }, []);
 
-  // Start recording mic and sending to backend
+  /* ── Connect ── */
+
+  const connect = useCallback(() => {
+    setError(null);
+    const wsUrl = `ws://${window.location.hostname}:8787`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("[v0] WS open, waiting for backend connected msg");
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        switch (msg.type) {
+          case "connected":
+            setIsConnected(true);
+            break;
+          case "audio":
+            setAiSpeaking(true);
+            scheduleAudio(msg.data);
+            break;
+          case "text":
+            setCurrentTranscript(msg.text);
+            cbRefs.current.onQuestion?.(msg.text);
+            setAiSpeaking(true);
+            break;
+          case "outputTranscript":
+            setCurrentTranscript((prev) => prev + msg.text);
+            cbRefs.current.onQuestion?.(msg.text);
+            break;
+          case "inputTranscript":
+            setUserTranscript((prev) => prev + msg.text);
+            break;
+          case "turnComplete":
+            setAiSpeaking(false);
+            break;
+          case "error":
+            setError(msg.message);
+            break;
+        }
+      } catch (err) {
+        console.error("[v0] WS message parse error:", err);
+      }
+    };
+
+    ws.onerror = () => setError("Connection error");
+
+    ws.onclose = () => {
+      setIsConnected(false);
+      setIsMicActive(false);
+      stopRecording();
+    };
+
+    wsRef.current = ws;
+  }, [scheduleAudio, stopRecording]);
+
+  /* ── Disconnect ── */
+
+  const disconnect = useCallback(() => {
+    wsRef.current?.close();
+    wsRef.current = null;
+    setIsConnected(false);
+    setIsMicActive(false);
+    stopRecording();
+  }, [stopRecording]);
+
+  /* ── Start recording ── */
+
   const startRecording = useCallback(async () => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      setError("Not connected to backend");
+      setError("Not connected");
       return;
     }
-
     setError(null);
     try {
-      // Request microphone
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: { ideal: 16000 },
@@ -174,140 +186,52 @@ export const LiveVoiceAgent = ({
           autoGainControl: true,
         },
       });
-
       streamRef.current = stream;
       setPersonSpeaking(true);
       setIsMicActive(true);
-      console.log("[LiveVoiceAgent] Recording started");
+      setUserTranscript("");
 
-      // Create audio context (16kHz)
-      const audioContext = new AudioContext({ sampleRate: 16000 });
-      audioContextRef.current = audioContext;
+      const ctx = new AudioContext({ sampleRate: 16000 });
+      audioCtxRef.current = ctx;
+      const src = ctx.createMediaStreamSource(stream);
+      sourceRef.current = src;
 
-      const source = audioContext.createMediaStreamSource(stream);
-      sourceRef.current = source;
-
-      // Use ScriptProcessorNode for audio processing
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
-
-      processor.onaudioprocess = (event) => {
-        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-          return;
-        }
-
-        const inputData = event.inputBuffer.getChannelData(0);
-        const pcm16 = float32ToPcm16(inputData);
-        const base64Audio = arrayBufferToBase64(pcm16.buffer);
-
-        // Send audio chunk to backend
+      const proc = ctx.createScriptProcessor(4096, 1, 1);
+      processorRef.current = proc;
+      proc.onaudioprocess = (e) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        const pcm16 = float32ToPcm16(e.inputBuffer.getChannelData(0));
         wsRef.current.send(
-          JSON.stringify({
-            type: "audio",
-            data: base64Audio,
-          })
+          JSON.stringify({ type: "audio", data: arrayBufferToBase64(pcm16.buffer) })
         );
       };
-
-      source.connect(processor);
-      processor.connect(audioContext.destination);
+      src.connect(proc);
+      proc.connect(ctx.destination);
     } catch (err: any) {
-      console.error("[LiveVoiceAgent] Microphone error:", err.message);
       setError(err.message);
       setPersonSpeaking(false);
       setIsMicActive(false);
     }
   }, []);
 
-  // Stop recording mic
-  const stopRecording = useCallback(() => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-    }
-    if (sourceRef.current) {
-      sourceRef.current.disconnect();
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setPersonSpeaking(false);
-    setIsMicActive(false);
-    console.log("[LiveVoiceAgent] Recording stopped");
-  }, []);
-
-  // Schedule audio playback (24kHz PCM16 from server)
-  const scheduleAudioPlayback = useCallback((base64Audio: string) => {
-    try {
-      // Initialize playback context if needed
-      if (!playbackContextRef.current) {
-        playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
-      }
-
-      const audioCtx = playbackContextRef.current;
-      const float32Data = base64ToFloat32(base64Audio);
-
-      // Create audio buffer from float32 data
-      const audioBuffer = audioCtx.createBuffer(1, float32Data.length, 24000);
-      audioBuffer.getChannelData(0).set(float32Data);
-
-      // Queue for playback
-      audioQueueRef.current.push(audioBuffer);
-      playNextAudioBuffer();
-    } catch (err) {
-      console.error("[LiveVoiceAgent] Audio decode error:", err);
-    }
-  }, []);
-
-  // Play audio buffers from the queue
-  const playNextAudioBuffer = useCallback(() => {
-    if (isPlayingRef.current || audioQueueRef.current.length === 0) {
-      return;
-    }
-
-    if (!playbackContextRef.current) {
-      playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
-    }
-
-    const audioCtx = playbackContextRef.current;
-    const audioBuffer = audioQueueRef.current.shift();
-
-    if (!audioBuffer) {
-      return;
-    }
-
-    isPlayingRef.current = true;
-
-    const source = audioCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioCtx.destination);
-
-    source.onended = () => {
-      isPlayingRef.current = false;
-      playNextAudioBuffer();
-    };
-
-    source.start(0);
-  }, []);
-
-  const handleMicToggle = () => {
-    if (isMicActive) {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      wsRef.current?.close();
       stopRecording();
-    } else {
-      startRecording();
-    }
-  };
+      playCtxRef.current?.close();
+    };
+  }, [stopRecording]);
+
+  /* ── UI ── */
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex gap-2">
+    <div className="flex flex-col gap-4 w-full max-w-md">
+      {/* Buttons */}
+      <div className="flex gap-3">
         <button
           onClick={isConnected ? disconnect : connect}
-          className={`px-4 py-2 rounded font-medium transition ${
+          className={`flex-1 px-4 py-3 rounded-xl font-medium text-base transition-colors ${
             isConnected
               ? "bg-red-500 text-white hover:bg-red-600"
               : "bg-blue-500 text-white hover:bg-blue-600"
@@ -317,48 +241,55 @@ export const LiveVoiceAgent = ({
         </button>
 
         <button
-          onClick={handleMicToggle}
+          onClick={isMicActive ? stopRecording : startRecording}
           disabled={!isConnected}
-          className={`px-4 py-2 rounded font-medium transition ${
+          className={`flex-1 px-4 py-3 rounded-xl font-medium text-base transition-colors ${
             isMicActive
               ? "bg-orange-500 text-white hover:bg-orange-600"
               : isConnected
                 ? "bg-green-500 text-white hover:bg-green-600"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed"
           }`}
         >
           {isMicActive ? "Stop Mic" : "Start Mic"}
         </button>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="p-3 bg-red-100 text-red-700 rounded text-sm">
+        <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-200">
           {error}
         </div>
       )}
 
-      <div className="text-sm text-gray-600">
-        <div>
-          Status:{" "}
-          <span className="font-semibold">
-            {isConnected ? "🟢 Connected" : "🔴 Disconnected"}
-          </span>
-        </div>
-        <div>
-          Mic: <span className="font-semibold">{isMicActive ? "🎤 Active" : "🔇 Idle"}</span>
-        </div>
-        <div>
-          AI Speaking: <span className="font-semibold">{aiSpeaking ? "🔊 Yes" : "🔇 No"}</span>
-        </div>
-        <div>
-          You Speaking: <span className="font-semibold">{personSpeaking ? "🎤 Yes" : "🔇 No"}</span>
-        </div>
+      {/* Status row */}
+      <div className="flex gap-3 text-xs text-gray-500">
+        <span className={isConnected ? "text-green-600 font-semibold" : ""}>
+          {isConnected ? "Connected" : "Disconnected"}
+        </span>
+        <span className="text-gray-300">|</span>
+        <span className={isMicActive ? "text-orange-600 font-semibold" : ""}>
+          Mic {isMicActive ? "On" : "Off"}
+        </span>
+        <span className="text-gray-300">|</span>
+        <span className={aiSpeaking ? "text-blue-600 font-semibold" : ""}>
+          AI {aiSpeaking ? "Speaking" : "Silent"}
+        </span>
       </div>
 
+      {/* AI transcript */}
       {currentTranscript && (
-        <div className="p-3 bg-blue-50 rounded border border-blue-200">
-          <div className="text-xs font-semibold text-blue-700 mb-1">Latest Message</div>
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="text-xs font-semibold text-blue-600 mb-1">AI</div>
           <div className="text-sm text-blue-900">{currentTranscript}</div>
+        </div>
+      )}
+
+      {/* User transcript */}
+      {userTranscript && (
+        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="text-xs font-semibold text-gray-500 mb-1">You</div>
+          <div className="text-sm text-gray-800">{userTranscript}</div>
         </div>
       )}
     </div>
