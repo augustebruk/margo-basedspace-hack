@@ -604,62 +604,60 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       </div>
 
       {/* ── Bottom white mic button (fixed) ────────────────────────────── */}
-      {started && (
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 16 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          onClick={handleMicToggle}
-          whileTap={{ scale: 0.95 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex h-[56px] w-[56px] items-center justify-center rounded-full bg-white border border-[#e0e7eb] shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33] cursor-pointer"
-          aria-label={entryListening ? "Stop recording" : "Start recording"}
-          aria-pressed={entryListening}
-          style={{
-            color: entryListening ? "#b6a0e0" : "#54656e",
-          }}
-        >
-          {entryListening && (
-            <>
-              <motion.span
-                aria-hidden="true"
-                className="absolute -inset-[4px] rounded-full border-2 border-[#b6a0e0]"
-                initial={{ opacity: 0.4, scale: 1 }}
-                animate={{ opacity: [0.35, 0.85, 0.35], scale: [1, 1.1, 1] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              />
-              <motion.span
-                aria-hidden="true"
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: "radial-gradient(circle, rgba(182,160,224,0.25) 0%, rgba(182,160,224,0) 70%)",
-                }}
-                animate={{ opacity: [0.35, 0.8, 0.35] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              />
-            </>
-          )}
-          <span className="relative flex items-center justify-center">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+      <motion.button
+        type="button"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 16 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        onClick={handleMicToggle}
+        whileTap={{ scale: 0.95 }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex h-[56px] w-[56px] items-center justify-center rounded-full bg-white border border-[#e0e7eb] shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33] cursor-pointer z-40"
+        aria-label={entryListening ? "Stop recording" : "Start recording"}
+        aria-pressed={entryListening}
+        style={{
+          color: entryListening ? "#b6a0e0" : "#54656e",
+        }}
+      >
+        {entryListening && (
+          <>
+            <motion.span
               aria-hidden="true"
-            >
-              <rect x="9" y="2.5" width="6" height="11" rx="3" />
-              <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
-              <line x1="12" y1="17.5" x2="12" y2="21" />
-              <line x1="8.5" y1="21" x2="15.5" y2="21" />
-            </svg>
-          </span>
-        </motion.button>
-      )}
+              className="absolute -inset-[4px] rounded-full border-2 border-[#b6a0e0]"
+              initial={{ opacity: 0.4, scale: 1 }}
+              animate={{ opacity: [0.35, 0.85, 0.35], scale: [1, 1.1, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: "radial-gradient(circle, rgba(182,160,224,0.25) 0%, rgba(182,160,224,0) 70%)",
+              }}
+              animate={{ opacity: [0.35, 0.8, 0.35] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </>
+        )}
+        <span className="relative flex items-center justify-center">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="9" y="2.5" width="6" height="11" rx="3" />
+            <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+            <line x1="12" y1="17.5" x2="12" y2="21" />
+            <line x1="8.5" y1="21" x2="15.5" y2="21" />
+          </svg>
+        </span>
+      </motion.button>
     </motion.div>
   );
 };
