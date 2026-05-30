@@ -1,3 +1,17 @@
+/**
+ * Frame — the single canonical root of the Margo app.
+ *
+ * This component IS the root route. main.tsx renders <Frame /> directly with
+ * no router layer. All phases of the app (entry → loading → reflection →
+ * practice) live here. Do NOT create an additional "home" page or wrap this in
+ * another layout — add new top-level screens as new `Phase` values instead.
+ *
+ * Design-system anchors (do not duplicate or replace):
+ *   Orb / sphere  →  <BulbAvatar>   (src/BulbAvatar.tsx)
+ *   Mic button    →  <Controls>     (src/Controls.tsx) — center button
+ *   Side buttons  →  <Controls>     (src/Controls.tsx) — finish + next
+ *   Font          →  Inter (loaded in index.html, applied via index.css :root)
+ */
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BulbAvatar, type BulbState } from "./BulbAvatar";
