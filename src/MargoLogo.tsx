@@ -6,14 +6,16 @@ import type { JSX } from "react";
  */
 export const MargoLogo = ({
   className,
+  onClick,
 }: {
   className?: string;
+  onClick?: () => void;
 }): JSX.Element => {
-  return (
+  const svg = (
     <svg
       role="img"
       aria-label="margo"
-      className={className}
+      className={onClick ? undefined : className}
       width="104"
       height="32"
       viewBox="0 0 104 32"
@@ -29,5 +31,18 @@ export const MargoLogo = ({
         fill="black"
       />
     </svg>
+  );
+
+  if (!onClick) return svg;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Go to home"
+      className={`${className ?? ""} cursor-pointer rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]`}
+    >
+      {svg}
+    </button>
   );
 };

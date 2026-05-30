@@ -58,6 +58,23 @@ const ForwardIcon = (): JSX.Element => (
   </svg>
 );
 
+const KeyboardIcon = (): JSX.Element => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="2" y="6" width="20" height="12" rx="2.5" />
+    <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 13h.01M18 13h.01M9 13h6" />
+  </svg>
+);
+
 /* -------------------------------------------------------------------------- */
 /* Color tokens                                                               */
 /* -------------------------------------------------------------------------- */
@@ -78,19 +95,24 @@ const sideButtonClass =
 
 interface ControlsProps {
   isRecording: boolean;
+  isTyping: boolean;
   onMicToggle: () => void;
+  onToggleKeyboard: () => void;
   onFinish: () => void;
   onNext: () => void;
 }
 
 export const Controls = ({
   isRecording,
+  isTyping,
   onMicToggle,
+  onToggleKeyboard,
   onFinish,
   onNext,
 }: ControlsProps): JSX.Element => {
   return (
-    <div className="flex w-full items-center justify-center gap-9 pb-[env(safe-area-inset-bottom)]">
+    <div className="flex w-full flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex w-full items-center justify-center gap-9">
       {/* Left — Finish entry (secondary, soft tint, no color change on press) */}
       <motion.button
         type="button"
@@ -119,7 +141,7 @@ export const Controls = ({
             : "0 10px 26px rgba(28,43,51,0.10)",
         }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        aria-label={isRecording ? "Stop recording" : "Start recording"}
+        aria-label={isRecording ? "Pause recording" : "Resume recording"}
         aria-pressed={isRecording}
         style={{ color: isRecording ? RECORD_ACCENT : ICON_COLOR }}
         className={
@@ -175,6 +197,26 @@ export const Controls = ({
       >
         <ForwardIcon />
       </motion.button>
+      </div>
+
+      {/* Keyboard toggle — switch between speaking and typing for this turn.
+          When recording is paused, tapping the mic resumes and appends. */}
+      <button
+        type="button"
+        onClick={onToggleKeyboard}
+        aria-pressed={isTyping}
+        className="all-[unset] box-border inline-flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 [font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/45 transition-colors hover:text-[#1c2b33]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+        title={isTyping ? "Switch back to voice" : "Type instead"}
+      >
+        {isTyping ? (
+          <span className="[&>svg]:h-5 [&>svg]:w-5">
+            <MicIcon />
+          </span>
+        ) : (
+          <KeyboardIcon />
+        )}
+        <span>{isTyping ? "Use voice" : "Type instead"}</span>
+      </button>
     </div>
   );
 };

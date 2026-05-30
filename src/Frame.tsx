@@ -7,51 +7,66 @@ import { ReflectionView } from "./ReflectionView";
 import { PracticeView } from "./PracticeView";
 import { useScribe } from "./useScribe";
 import { useReflection } from "./useReflection";
+import { useFollowup } from "./useFollowup";
+import { Onboarding } from "./Onboarding";
+import { useOnboarding } from "./useOnboarding";
+import { useEntries, countWords } from "./useEntries";
+import { HistoryView } from "./HistoryView";
+import { EntryDetailView } from "./EntryDetailView";
+import { BottomNav, type NavTab } from "./BottomNav";
 
-const legalLinks = [
-  { label: "Terms of Service", href: "#terms" },
-  { label: "Privacy Policy", href: "#privacy" },
-];
+// The journaling entry always opens with this fixed prompt. The remaining
+// prompts are generated live by the AI from the conversation (see `useFollowup`).
+const OPENING_QUESTION = "How was your day?";
 
-// Demo question bank. The AI always opens with the first one. Replace these
-// (or drive them from the backend via `aiSay()`) with real AI messages.
-const QUESTIONS = [
-  "How did that make you feel?",
-  "What do you think triggered that?",
-  "Is there anything you'd do differently?",
-  "What would you tell a friend in your situation?",
-];
+// Total prompts in an entry: the fixed opener + this many AI-generated
+// follow-ups. After the last follow-up's answer, the entry wraps up.
+const FOLLOWUP_COUNT = 3;
 
-/* ============================================================================
- * PLACEHOLDER BACKEND HANDLERS — replace bodies with real AI/navigation calls.
- * Speech-to-text (Scribe) and reflection generation (LLM via /api/reflection)
- * are wired below; these remaining hooks are for the conversational AI.
- * ==========================================================================*/
-function onNextPrompt(): void {
-  // TODO: ask the AI for the next question/prompt.
-  console.log("[AI] next prompt requested");
-}
-
-type Phase = "entry" | "loading" | "reflection" | "practice";
+type Phase =
+  | "onboarding"
+  | "entry"
+  | "loading"
+  | "reflection"
+  | "practice"
+  | "history"
+  | "historyDetail";
 
 // Minimum time the white "preparing" loading screen shows, so the transition
 // into the reflection feels calm even if generation resolves quickly.
 const LOADING_MS = 1900;
 
 export const Frame = (): JSX.Element => {
-  // Which screen we're on: journaling → loading → reflection → practice.
-  const [phase, setPhase] = useState<Phase>("entry");
+  // Persisted onboarding state (name + completion flag in localStorage).
+  const { name, onboardingComplete, setName, completeOnboarding } =
+    useOnboarding();
+
+  // Which screen we're on. New users land in the voice-first onboarding;
+  // returning users (onboardingComplete) skip straight to the journaling app.
+  const [phase, setPhase] = useState<Phase>(
+    onboardingComplete ? "entry" : "onboarding",
+  );
 
   // --- Entry conversation state machine -------------------------------
   const [bulbState, setBulbState] = useState<BulbState>("idle");
-  const [currentQuestion, setCurrentQuestion] = useState(QUESTIONS[0]);
+  const [currentQuestion, setCurrentQuestion] = useState(OPENING_QUESTION);
   const [personTranscript, setPersonTranscript] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  // True while the user has switched to keyboard input for the current turn.
+  const [isTyping, setIsTyping] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
-  const questionIndex = useRef(0);
+  // How many prompts the user has answered so far (opener counts as the first
+  // prompt). When this reaches FOLLOWUP_COUNT + 1, the entry is out of prompts.
+  const promptCount = useRef(0);
 
   // Reflection screen: true while the AI "reads" the summary (drives the wave).
   const [reflectionSpeaking, setReflectionSpeaking] = useState(false);
+
+  // Past entries (persisted) + which one is open in the detail view.
+  const { entries, addEntry } = useEntries();
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  // When the current session started, to compute its duration on finish.
+  const entryStartedAt = useRef<number>(0);
 
   const started = bulbState !== "idle";
   const aiSpeaking = bulbState === "aiSpeaking";
@@ -77,6 +92,7 @@ export const Frame = (): JSX.Element => {
   // reflection generator when the entry finishes.
   const transcriptLog = useRef<string[]>([]);
   const { reflection, generate: generateReflection } = useReflection();
+  const { next: generateFollowup } = useFollowup();
 
   // Record a completed turn (the question the AI asked + what the user said).
   const recordTurn = useCallback((question: string, answer: string) => {
@@ -88,6 +104,7 @@ export const Frame = (): JSX.Element => {
   const aiSay = useCallback((question: string) => {
     setCurrentQuestion(question);
     setPersonTranscript("");
+    setIsTyping(false);
     setBulbState("aiSpeaking");
   }, []);
 
@@ -96,50 +113,131 @@ export const Frame = (): JSX.Element => {
   }, []);
   // ===================================================================
 
-  const nextQuestion = useCallback(() => {
-    questionIndex.current = (questionIndex.current + 1) % QUESTIONS.length;
-    return QUESTIONS[questionIndex.current];
-  }, []);
+  // Advance the conversation after the user finishes a turn: record it, then
+  // either ask the next AI-generated follow-up (built from the conversation so
+  // far) or, once the prompt cap is reached, wrap up the entry.
+  const finishEntryRef = useRef<(alreadyRecorded?: boolean) => void>(() => {});
+
+  const advanceConversation = useCallback(() => {
+    recordTurn(currentQuestion, personTranscript);
+    setIsRecording(false);
+
+    // promptCount counts answered prompts (opener included). Once we've asked
+    // the opener + all follow-ups, there are no more prompts → finish.
+    if (promptCount.current >= FOLLOWUP_COUNT) {
+      // Turn already recorded above; finish without re-recording it.
+      finishEntryRef.current(true);
+      return;
+    }
+
+    const step = promptCount.current - 1; // 0-based index of this follow-up
+    promptCount.current += 1;
+
+    // Show the thinking orb immediately, then swap in the generated question.
+    setPersonTranscript("");
+    setCurrentQuestion("");
+    setIsTyping(false);
+    setBulbState("aiSpeaking");
+
+    void generateFollowup(transcriptLog.current.join("\n\n"), step, name).then(
+      (question) => {
+        aiSay(question);
+      },
+    );
+  }, [
+    aiSay,
+    currentQuestion,
+    generateFollowup,
+    name,
+    personTranscript,
+    recordTurn,
+  ]);
 
   const handleStartEntry = () => {
-    questionIndex.current = 0;
+    promptCount.current = 1; // the opener is the first prompt
+    transcriptLog.current = [];
+    entryStartedAt.current = Date.now();
     setBurstKey((k) => k + 1);
-    aiSay(QUESTIONS[0]);
+    aiSay(OPENING_QUESTION);
   };
 
   const handleMicToggle = () => {
     if (isRecording) {
+      // Pause recording but stay in this turn — the user can switch to the
+      // keyboard, then tap the mic again to resume and keep talking. Advancing
+      // to the next prompt / finishing is handled by the side buttons.
       setIsRecording(false);
-      recordTurn(currentQuestion, personTranscript);
-      aiSay(nextQuestion());
     } else {
+      // (Re)activate the mic. Any text already captured (spoken or typed) is
+      // kept; new speech is appended to it via the scribe seed.
+      setIsTyping(false);
       setIsRecording(true);
       listen();
     }
   };
 
+  const handleToggleKeyboard = () => {
+    if (isTyping) {
+      // Leaving keyboard mode — keep the typed text; the user can tap the mic
+      // to resume speaking (it will append to what they typed).
+      setIsTyping(false);
+    } else {
+      // Switching to keyboard pauses the mic so speech doesn't fight typing.
+      // Enter the person-speaking turn so the textarea is shown even when the
+      // user types first (before ever starting the mic on this prompt).
+      setIsRecording(false);
+      setIsTyping(true);
+      listen();
+    }
+  };
+
   const handleNextPrompt = () => {
-    onNextPrompt();
-    if (isRecording) setIsRecording(false);
-    if (!aiSpeaking && personTranscript) recordTurn(currentQuestion, personTranscript);
-    aiSay(nextQuestion());
+    advanceConversation();
   };
 
   // Finish entry → stop recording, capture the final turn, then run the
   // minimum loading time and reflection generation in parallel; advance to the
   // reflection only once both have settled.
-  const handleFinishEntry = () => {
+  const handleFinishEntry = useCallback((alreadyRecorded = false) => {
     if (isRecording) setIsRecording(false);
-    if (personTranscript) recordTurn(currentQuestion, personTranscript);
+    if (!alreadyRecorded && personTranscript)
+      recordTurn(currentQuestion, personTranscript);
     setPhase("loading");
 
+    // Capture session stats now (audio is never stored — only the transcript).
+    const transcript = transcriptLog.current.join("\n\n");
+    const durationMs = entryStartedAt.current
+      ? Date.now() - entryStartedAt.current
+      : 0;
+    const wordCount = countWords(transcript);
+
     const minDelay = new Promise<void>((r) => setTimeout(r, LOADING_MS));
-    const generation = generateReflection(transcriptLog.current.join("\n\n"));
-    void Promise.all([minDelay, generation]).then(() => {
+    const generation = generateReflection(transcript);
+    void Promise.all([minDelay, generation]).then(([, generated]) => {
+      // Persist the finished session so it appears in the History tab.
+      if (transcript.trim() && generated.summary) {
+        addEntry({
+          topic: generated.topic || "Journal entry",
+          durationMs,
+          wordCount,
+          transcript,
+          reflection: generated,
+        });
+      }
       setReflectionSpeaking(true);
       setPhase("reflection");
     });
-  };
+  }, [
+    addEntry,
+    currentQuestion,
+    generateReflection,
+    isRecording,
+    personTranscript,
+    recordTurn,
+  ]);
+
+  // Keep the ref in sync so advanceConversation can finish without a cycle.
+  finishEntryRef.current = handleFinishEntry;
 
   // Reflection CTA → the practice experience (third step).
   const handleStartDailyPractice = () => {
@@ -150,24 +248,68 @@ export const Frame = (): JSX.Element => {
   };
 
   // Back to home → reset the whole flow to the idle entry screen.
-  const handleBackHome = () => {
+  const handleBackHome = useCallback(() => {
     // TODO: connect to real navigation. For now, reset to the start.
     console.log("[nav] back to home");
     setIsRecording(false);
+    setIsTyping(false);
     setReflectionSpeaking(false);
     setPersonTranscript("");
     transcriptLog.current = [];
-    questionIndex.current = 0;
+    promptCount.current = 0;
     setBulbState("idle");
     setPhase("entry");
+  }, []);
+
+  // Tapping the logo goes home (the main entry screen) — but only if we
+  // already have the user's name. Without a name we're still onboarding, so
+  // there's nowhere to skip to and the tap is a no-op.
+  const handleLogoClick = useCallback(() => {
+    if (!name) return;
+    handleBackHome();
+  }, [name, handleBackHome]);
+
+  // Bottom-nav tab selection between the journaling flow and the history list.
+  const handleSelectTab = (tab: NavTab) => {
+    if (tab === "journal") {
+      setPhase("entry");
+    } else {
+      setSelectedEntryId(null);
+      setPhase("history");
+    }
   };
+
+  const handleOpenEntry = (id: string) => {
+    setSelectedEntryId(id);
+    setPhase("historyDetail");
+  };
+
+  const selectedEntry =
+    entries.find((entry) => entry.id === selectedEntryId) ?? null;
+
+  // The bottom nav is shown only on the two main tabs (not onboarding,
+  // loading, the reflection, the practice, or the entry detail) — and it hides
+  // once a journaling entry is actually in progress so it stays out of the way.
+  const navTab: NavTab | null =
+    phase === "entry" && !started
+      ? "journal"
+      : phase === "history"
+        ? "history"
+        : null;
 
   // Live speech-to-text via ElevenLabs Scribe. Start a streaming session when
   // recording begins and tear it down when it stops. `useScribe` feeds results
-  // into `setPersonTranscript`.
+  // into `setPersonTranscript`. When resuming a turn (after a keyboard edit or
+  // a pause) we seed Scribe with the existing transcript so new speech is
+  // appended rather than overwriting what's already there.
+  const transcriptRef = useRef("");
+  useEffect(() => {
+    transcriptRef.current = personTranscript;
+  }, [personTranscript]);
+
   useEffect(() => {
     if (!isRecording) return;
-    void startScribe();
+    void startScribe(transcriptRef.current);
     return () => {
       stopScribe();
     };
@@ -177,17 +319,37 @@ export const Frame = (): JSX.Element => {
     <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-[#f3f3f3] p-4">
       <section className="relative flex h-[844px] w-[390px] shrink-0 flex-col overflow-hidden rounded-[44px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
         <AnimatePresence mode="wait">
-          {phase === "entry" ? (
+          {phase === "onboarding" ? (
+            <Onboarding
+              key="onboarding"
+              onName={setName}
+              onStartNoticing={() => {
+                completeOnboarding();
+                setPhase("entry");
+              }}
+              onSaveAndExit={() => {
+                completeOnboarding();
+                setPhase("entry");
+              }}
+              onSkipToHome={() => {
+                completeOnboarding();
+                handleBackHome();
+              }}
+            />
+          ) : phase === "entry" ? (
             <motion.div
               key="entry"
               // Exit upward + shrink so it reads like the orb flowing up into
               // the voice bar on the next screen.
               exit={{ opacity: 0, y: -60, scale: 0.92 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="relative flex h-full w-full flex-col items-center px-6 pt-[118px] pb-8"
+              className="relative flex h-full w-full flex-col items-center px-6 pt-[118px] pb-[40px]"
             >
               {/* Brand logo, anchored at the top of the entry screen. */}
-              <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
+              <MargoLogo
+                onClick={handleLogoClick}
+                className="absolute top-7 left-1/2 -translate-x-1/2"
+              />
 
               {/* Title fades out and unmounts once the entry starts. */}
               <AnimatePresence>
@@ -200,36 +362,76 @@ export const Frame = (): JSX.Element => {
                     transition={{ duration: 0.4, ease: "easeOut" }}
                     className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.25] whitespace-nowrap pb-px"
                   >
-                    Activate Agent
+                    {name ? `Welcome back, ${name}` : "Activate Agent"}
                   </motion.h1>
                 )}
               </AnimatePresence>
 
               {/* Bulb + AI question stack, vertically centered. */}
               <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
-                <div className="relative flex items-center justify-center">
+                <div className="relative flex flex-col items-center justify-center gap-7">
+                  <div className="relative flex items-center justify-center">
+                    <AnimatePresence>
+                      {burstKey > 0 && (
+                        <motion.span
+                          key={burstKey}
+                          aria-hidden="true"
+                          className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
+                          initial={{ opacity: 0.6, scale: 1 }}
+                          animate={{ opacity: 0, scale: 1.7 }}
+                          transition={{ duration: 0.7, ease: "easeOut" }}
+                        />
+                      )}
+                    </AnimatePresence>
+
+                    {/* Idle: the whole orb is the tap-to-begin affordance. */}
+                    {!started ? (
+                      <button
+                        type="button"
+                        onClick={handleStartEntry}
+                        aria-label="Tap to begin"
+                        className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
+                      >
+                        <BulbAvatar state={bulbState} />
+                      </button>
+                    ) : (
+                      <BulbAvatar state={bulbState} />
+                    )}
+                  </div>
+
+                  {/* Minimal tap-to-begin caption (replaces the pill button). */}
                   <AnimatePresence>
-                    {burstKey > 0 && (
+                    {!started && (
                       <motion.span
-                        key={burstKey}
-                        aria-hidden="true"
-                        className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
-                        initial={{ opacity: 0.6, scale: 1 }}
-                        animate={{ opacity: 0, scale: 1.7 }}
-                        transition={{ duration: 0.7, ease: "easeOut" }}
-                      />
+                        key="tap-to-begin"
+                        initial={false}
+                        exit={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: [0.45, 0.9, 0.45] }}
+                        transition={{
+                          opacity: {
+                            duration: 3.2,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          },
+                        }}
+                        className="[font-family:'Inter',Helvetica] text-[13px] font-medium uppercase tracking-[3px] text-[#1c2b33]/40 select-none"
+                      >
+                        Tap to begin
+                      </motion.span>
                     )}
                   </AnimatePresence>
-
-                  <BulbAvatar state={bulbState} />
                 </div>
 
                 <AnimatePresence mode="wait">
-                  {aiSpeaking && (
+                  {(aiSpeaking || personSpeaking) && currentQuestion && (
                     <motion.p
                       key={currentQuestion}
                       initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      animate={{
+                        opacity: personSpeaking ? 0.55 : 1,
+                        y: 0,
+                        scale: personSpeaking ? 0.92 : 1,
+                      }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
                       className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] leading-[1.3] tracking-[-0.4px]"
@@ -260,28 +462,6 @@ export const Frame = (): JSX.Element => {
                           Start Entry
                         </span>
                       </button>
-                      <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
-                        <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                          By tapping &apos;Start Entry&apos; and using our app,
-                          you&apos;re agreeing to our{" "}
-                        </span>
-                        <a
-                          href={legalLinks[0].href}
-                          className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
-                        >
-                          {legalLinks[0].label}
-                        </a>
-                        <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                          {" "}
-                          and{" "}
-                        </span>
-                        <a
-                          href={legalLinks[1].href}
-                          className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
-                        >
-                          {legalLinks[1].label}
-                        </a>
-                      </p>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -293,7 +473,7 @@ export const Frame = (): JSX.Element => {
                     >
                       <div className="flex min-h-[64px] w-full items-end justify-center px-2">
                         <AnimatePresence mode="wait">
-                          {personSpeaking && (
+                          {personSpeaking && !isTyping && (
                             <motion.div
                               key="transcript"
                               initial={{ opacity: 0, y: 10 }}
@@ -306,7 +486,8 @@ export const Frame = (): JSX.Element => {
                                 Your turn
                               </span>
                               <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55">
-                                {personTranscript || "Listening…"}
+                                {personTranscript ||
+                                  (isRecording ? "Listening…" : "Tap the mic or keyboard to begin")}
                               </p>
                               {scribeError && (
                                 <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[13px] leading-[18px] text-[#d4576a]">
@@ -315,13 +496,37 @@ export const Frame = (): JSX.Element => {
                               )}
                             </motion.div>
                           )}
+                          {personSpeaking && isTyping && (
+                            <motion.div
+                              key="typing"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 8 }}
+                              transition={{ duration: 0.3, ease: "easeOut" }}
+                              className="flex w-full flex-col items-center gap-2"
+                            >
+                              <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
+                                Your turn
+                              </span>
+                              <textarea
+                                autoFocus
+                                value={personTranscript}
+                                onChange={(e) => setPersonTranscript(e.target.value)}
+                                placeholder="Type to add to your entry…"
+                                rows={2}
+                                className="w-full max-w-[300px] resize-none rounded-2xl border border-[rgba(244,231,255,0.9)] bg-white/70 px-4 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[22px] text-[#1c2b33] shadow-[0_6px_16px_rgba(28,43,51,0.06)] placeholder:text-[#1c2b33]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b6a0e0]"
+                              />
+                            </motion.div>
+                          )}
                         </AnimatePresence>
                       </div>
 
                       <Controls
                         isRecording={isRecording}
+                        isTyping={isTyping}
                         onMicToggle={handleMicToggle}
-                        onFinish={handleFinishEntry}
+                        onToggleKeyboard={handleToggleKeyboard}
+                        onFinish={() => handleFinishEntry()}
                         onNext={handleNextPrompt}
                       />
                     </motion.div>
@@ -367,8 +572,45 @@ export const Frame = (): JSX.Element => {
               onSummaryComplete={() => setReflectionSpeaking(false)}
               onStartDailyPractice={handleStartDailyPractice}
             />
-          ) : (
+          ) : phase === "practice" ? (
             <PracticeView key="practice" onBackHome={handleBackHome} />
+          ) : phase === "history" ? (
+            <HistoryView
+              key="history"
+              entries={entries}
+              onOpenEntry={handleOpenEntry}
+            />
+          ) : selectedEntry ? (
+            <EntryDetailView
+              key="history-detail"
+              entry={selectedEntry}
+              onBack={() => {
+                setSelectedEntryId(null);
+                setPhase("history");
+              }}
+            />
+          ) : (
+            // Fallback: a selected entry went missing — return to the list.
+            <HistoryView
+              key="history-fallback"
+              entries={entries}
+              onOpenEntry={handleOpenEntry}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Persistent bottom navigation, shown only on the two main tabs. */}
+        <AnimatePresence>
+          {navTab && (
+            <motion.div
+              key="bottom-nav"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <BottomNav active={navTab} onSelect={handleSelectTab} />
+            </motion.div>
           )}
         </AnimatePresence>
       </section>

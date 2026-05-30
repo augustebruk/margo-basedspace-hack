@@ -3,6 +3,8 @@ import type { ReflectionPattern } from "./ReflectionView";
 
 /** The data shape <ReflectionView/> consumes (sans presentational props). */
 export interface Reflection {
+  /** Short AI-generated title for the entry (used in the history list). */
+  topic: string;
   summary: string;
   patterns: ReflectionPattern[];
   nextSteps: string[];
@@ -10,67 +12,52 @@ export interface Reflection {
 
 const REFLECTION_ENDPOINT = "/api/reflection";
 
-/**
- * Fallback reflection, used for demos when no LLM key is configured or the
- * request fails. Keeps the flow unbroken end-to-end.
- */
-export const MOCK_REFLECTION: Reflection = {
-  summary:
-    "Across your last few entries, you often mention feeling drained after saying yes to extra work. It seems like your need for rest keeps colliding with a fear of letting people down. What would it look like to protect a little more rest this week without disappointing yourself?",
-  patterns: [
-    { label: "Overwhelm", recurrenceLabel: "3x this week" },
-    { label: "Need for rest", recurrenceLabel: "recurring" },
-    { label: "Boundary setting", recurrenceLabel: "2 entries" },
-    { label: "Self-criticism" },
-  ],
-  nextSteps: [
-    "Block 20 minutes of unscheduled rest today.",
-    "Say no to one non-essential request.",
-    "Note one thing you handled well.",
-  ],
+const EMPTY_REFLECTION: Reflection = {
+  topic: "",
+  summary: "",
+  patterns: [],
+  nextSteps: [],
 };
 
 interface UseReflectionResult {
-  /** The generated reflection (or the mock fallback). */
+  /** The generated reflection. */
   reflection: Reflection;
   /** True while a generation request is in flight. */
   generating: boolean;
-  /** True when the current reflection came from the mock fallback. */
-  usedFallback: boolean;
+  /** Set when the most recent generation failed. */
+  error: string | null;
   /**
-   * Generate a reflection from the journaling transcript. Resolves once the
-   * reflection state has been set (either from the model or the fallback).
+   * Generate a reflection from the journaling transcript. Resolves with the
+   * generated reflection (or `EMPTY_REFLECTION` if generation failed).
    */
-  generate: (transcript: string) => Promise<void>;
+  generate: (transcript: string) => Promise<Reflection>;
 }
 
 /**
  * Generates a journaling reflection from the entry transcript via the
- * server-side `/api/reflection` proxy (which holds the LLM key). Falls back to
- * `MOCK_REFLECTION` if the transcript is empty, the key is missing, or the
- * request fails — so the reflection screen always has content to show.
+ * server-side `/api/reflection` proxy (which holds the LLM key).
  */
 export function useReflection(): UseReflectionResult {
-  const [reflection, setReflection] = useState<Reflection>(MOCK_REFLECTION);
+  const [reflection, setReflection] = useState<Reflection>(EMPTY_REFLECTION);
   const [generating, setGenerating] = useState(false);
-  const [usedFallback, setUsedFallback] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   // Guards against an out-of-order response overwriting a newer one.
   const requestId = useRef(0);
 
   const generate = useCallback(async (transcript: string) => {
     const id = ++requestId.current;
     setGenerating(true);
+    setError(null);
 
-    const fall = () => {
-      if (id !== requestId.current) return;
-      setReflection(MOCK_REFLECTION);
-      setUsedFallback(true);
+    const fail = (message: string): Reflection => {
+      if (id === requestId.current) setError(message);
+      return EMPTY_REFLECTION;
     };
 
     if (!transcript.trim()) {
-      fall();
+      const result = fail("No transcript to reflect on.");
       setGenerating(false);
-      return;
+      return result;
     }
 
     try {
@@ -81,20 +68,21 @@ export function useReflection(): UseReflectionResult {
       });
 
       if (!res.ok) {
-        fall();
-        return;
+        return fail(`Reflection request failed (${res.status}).`);
       }
 
       const data = (await res.json()) as Reflection;
-      if (id !== requestId.current) return; // superseded
+      if (id !== requestId.current) return data; // superseded
       setReflection(data);
-      setUsedFallback(false);
-    } catch {
-      fall();
+      return data;
+    } catch (err) {
+      return fail(
+        err instanceof Error ? err.message : "Reflection request failed.",
+      );
     } finally {
       if (id === requestId.current) setGenerating(false);
     }
   }, []);
 
-  return { reflection, generating, usedFallback, generate };
+  return { reflection, generating, error, generate };
 }

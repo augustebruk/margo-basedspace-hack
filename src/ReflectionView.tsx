@@ -219,9 +219,9 @@ export const ReflectionView = ({
               ))}
             </div>
 
-            {/* Obsidian-style graph of how this entry connects. */}
-            <div className="mt-1 overflow-hidden rounded-[20px] bg-white px-2 py-1 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
-              <EntryGraph />
+            {/* Obsidian-style graph of how this entry connects — drag, pan, zoom. */}
+            <div className="mt-1 overflow-hidden rounded-[20px] bg-white p-1.5 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
+              <EntryGraph height={240} />
             </div>
           </motion.section>
 
