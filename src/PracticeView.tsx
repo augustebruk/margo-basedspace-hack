@@ -92,18 +92,8 @@ export const PracticeView = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative flex h-full w-full flex-col"
+      className="relative flex h-full w-full flex-col bg-white"
     >
-      {/* Same washed-out pastel orb background as the Reflection screen. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
-      />
-
       {/* Header */}
       <div className="px-5 pt-12 pb-3">
         <h1 className="[font-family:'Inter',Helvetica] text-[24px] font-medium leading-[1.25] tracking-[-0.4px] text-[#1c2b33]">
@@ -137,7 +127,7 @@ export const PracticeView = ({
                     "all-[unset] box-border flex w-full cursor-pointer items-center gap-3 rounded-[16px] border px-4 py-3 transition-colors " +
                     (active
                       ? "border-[#c7a6f5] bg-[rgba(244,231,255,0.6)]"
-                      : "border-[#e7e2ef] bg-white/70 hover:bg-white")
+                      : "border-[#e7e2ef] bg-white hover:bg-[#faf7ff]")
                   }
                 >
                   <span
@@ -176,7 +166,7 @@ export const PracticeView = ({
             onChange={(e) => setReflection(e.target.value)}
             rows={3}
             placeholder="In 2–3 sentences, describe what's on your mind about this."
-            className="w-full resize-none rounded-[16px] border border-[#e7e2ef] bg-white/80 p-3.5 [font-family:'Inter',Helvetica] text-[14px] leading-[21px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+            className="w-full resize-none rounded-[16px] border border-[#e7e2ef] bg-white p-3.5 [font-family:'Inter',Helvetica] text-[14px] leading-[21px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
           />
         </motion.section>
 
@@ -202,7 +192,7 @@ export const PracticeView = ({
                     "all-[unset] box-border cursor-pointer rounded-full border px-3.5 py-2 [font-family:'Inter',Helvetica] text-[13px] font-medium transition-colors " +
                     (active
                       ? "border-[#c7a6f5] bg-[rgba(244,231,255,0.6)] text-[#1c2b33]"
-                      : "border-[#e7e2ef] bg-white/70 text-[#1c2b33]/75 hover:bg-white")
+                      : "border-[#e7e2ef] bg-white text-[#1c2b33]/75 hover:bg-[#faf7ff]")
                   }
                 >
                   {s}
@@ -218,7 +208,7 @@ export const PracticeView = ({
               if (e.target.value.trim()) setSelectedAction(null);
             }}
             placeholder="Other — write your own…"
-            className="w-full rounded-[16px] border border-[#e7e2ef] bg-white/80 px-3.5 py-3 [font-family:'Inter',Helvetica] text-[14px] leading-[20px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+            className="w-full rounded-[16px] border border-[#e7e2ef] bg-white px-3.5 py-3 [font-family:'Inter',Helvetica] text-[14px] leading-[20px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
           />
         </motion.section>
       </motion.div>

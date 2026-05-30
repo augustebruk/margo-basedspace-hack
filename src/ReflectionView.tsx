@@ -147,18 +147,8 @@ export const ReflectionView = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative flex h-full w-full flex-col"
+      className="relative flex h-full w-full flex-col bg-white"
     >
-      {/* Washed-out, low-contrast version of the orb gradient as background. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
-      />
-
       {/* ---- Voice bar — minimal white outlined pill with a black waveform.
               Centered, sized just to the waveform. Decorative status only. ---- */}
       <div className="flex justify-center px-5 pt-14 pb-5">
@@ -220,7 +210,7 @@ export const ReflectionView = ({
             </div>
 
             {/* Obsidian-style graph of how this entry connects. */}
-            <div className="mt-1 overflow-hidden rounded-[20px] bg-white px-2 py-1 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
+            <div className="mt-1 overflow-hidden rounded-[20px] border border-[#eef0f4] bg-white px-2 py-1">
               <EntryGraph />
             </div>
           </motion.section>

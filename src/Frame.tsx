@@ -72,7 +72,6 @@ export const Frame = (): JSX.Element => {
   const [currentQuestion, setCurrentQuestion] = useState(QUESTIONS[0]);
   const [personTranscript, setPersonTranscript] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const [burstKey, setBurstKey] = useState(0);
   const questionIndex = useRef(0);
 
   // Reflection screen: true while the AI "reads" the summary (drives the wave).
@@ -106,7 +105,6 @@ export const Frame = (): JSX.Element => {
 
   const handleStartEntry = () => {
     questionIndex.current = 0;
-    setBurstKey((k) => k + 1);
     aiSay(QUESTIONS[0]);
   };
 
@@ -191,10 +189,8 @@ export const Frame = (): JSX.Element => {
           {phase === "entry" ? (
             <motion.div
               key="entry"
-              // Exit upward + shrink so it reads like the orb flowing up into
-              // the voice bar on the next screen.
-              exit={{ opacity: 0, y: -60, scale: 0.92 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
+              exit={{ opacity: 0, y: -40 }}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
               className="relative flex h-full w-full flex-col items-center px-6 pt-[118px] pb-8"
             >
               {/* Brand logo, anchored at the top of the entry screen. */}
@@ -219,19 +215,6 @@ export const Frame = (): JSX.Element => {
               {/* Bulb + AI question stack, vertically centered. */}
               <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
                 <div className="relative flex items-center justify-center">
-                  <AnimatePresence>
-                    {burstKey > 0 && (
-                      <motion.span
-                        key={burstKey}
-                        aria-hidden="true"
-                        className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
-                        initial={{ opacity: 0.6, scale: 1 }}
-                        animate={{ opacity: 0, scale: 1.7 }}
-                        transition={{ duration: 0.7, ease: "easeOut" }}
-                      />
-                    )}
-                  </AnimatePresence>
-
                   <BulbAvatar state={bulbState} />
                 </div>
 
