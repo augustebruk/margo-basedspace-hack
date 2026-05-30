@@ -1,13 +1,23 @@
 /**
  * MicScreen — the root orb / journaling screen of the Margo app.
  *
- * Onboarding stage machine
- * ────────────────────────
- *   'intro'           → "Hi, I'm Margo" (auto-advances after 3 s)
- *   'askName'         → mic opens automatically; first utterance → userName
- *   'askFirstThought' → mic opens automatically; utterance → firstThoughtTranscript
- *   'firstInsight'    → shows mirror-moment panel with real transcript + insight
- *   'done'            → regular entry flow
+ * Onboarding stage machine (mic-driven — no timers, no auto-advance)
+ * ────────────────────────────────────────────────────────────────────
+ *  'intro'           → "Hi, I'm Margo." — waits for first mic tap.
+ *                      Tap mic → move to 'askName' + start listening.
+ *
+ *  'askName'         → mic is open. When speech ends:
+ *                        • store the name, stay in 'askName'.
+ *                      Tap mic again → confirm name, move to 'askFirstThought' + start listening.
+ *
+ *  'askFirstThought' → mic is open. When speech ends:
+ *                        • store the thought, stay in 'askFirstThought'.
+ *                      Tap mic again → generate insight, move to 'firstInsight'.
+ *
+ *  'firstInsight'    → shows insight panel. Tap mic → 'done' (normal mode).
+ *
+ *  'done'            → regular entry flow. Mic starts/stops recording.
+ *                      Overlays open via voice commands, close via mic-tap-with-no-speech.
  *
  * DEV shortcut: press `d` to step through stages without speaking.
  */
@@ -94,83 +104,52 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
   const [userName, setUserName] = useState<string | null>(null);
   const [firstThoughtTranscript, setFirstThoughtTranscript] = useState<string | null>(null);
   const [currentInsight, setCurrentInsight] = useState<Insight | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
-  // ── Voice / recording state (post-onboarding entry) ───────────────────────
+  // ── Post-onboarding voice state ───────────────────────────────────────────
   const [bulbState, setBulbState] = useState<BulbState>("idle");
   const [currentQuestion, setCurrentQuestion] = useState(QUESTIONS[0]);
-  const [personTranscript, setPersonTranscript] = useState("");
+  const [entryListening, setEntryListening] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
   const questionIndex = useRef(0);
 
   const started = bulbState !== "idle";
   const aiSpeaking = bulbState === "aiSpeaking";
-  const personSpeaking = bulbState === "personSpeaking";
   const onboardingActive = onboardingStage !== "done";
 
-  // ── Real STT hook (onboarding voice capture) ──────────────────────────────
+  // ── STT: onboarding ───────────────────────────────────────────────────────
+  /**
+   * Called when the STT session ends during onboarding.
+   * Stores the captured value but does NOT advance the stage —
+   * stage advancement only happens on the next mic tap.
+   */
   const onboardingSttOnEnd = useCallback(
     (transcript: string) => {
       const trimmed = transcript.trim();
 
       if (onboardingStage === "askName") {
         if (!trimmed) {
-          // Retry once on empty capture.
-          if (retryCount < 1) {
-            setRetryCount((c) => c + 1);
-            setRetryMessage("I didn't catch that — let's try again.");
-            setTimeout(() => {
-              setRetryMessage(null);
-              startOnboardingListening();
-            }, 1800);
-          } else {
-            // Second failure: skip to a default name and continue.
-            setUserName("friend");
-            setRetryCount(0);
-            setRetryMessage(null);
-            setTimeout(() => setOnboardingStage("askFirstThought"), 600);
-          }
+          setRetryMessage("I didn't catch that — try speaking again.");
           return;
         }
-        // Take the first word as the name, capitalise it.
         const name = trimmed.split(/\s+/)[0];
         const capitalised = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
         setUserName(capitalised);
-        setRetryCount(0);
         setRetryMessage(null);
-        setTimeout(() => setOnboardingStage("askFirstThought"), 900);
+        // Stay in askName — user taps mic again to confirm.
       }
 
       if (onboardingStage === "askFirstThought") {
         if (!trimmed) {
-          if (retryCount < 1) {
-            setRetryCount((c) => c + 1);
-            setRetryMessage("I didn't catch that — let's try again.");
-            setTimeout(() => {
-              setRetryMessage(null);
-              startOnboardingListening();
-            }, 1800);
-          } else {
-            // Skip to insight with placeholder.
-            const fallback = "Something on my mind.";
-            setFirstThoughtTranscript(fallback);
-            setCurrentInsight(deriveInsight(fallback));
-            setRetryCount(0);
-            setRetryMessage(null);
-            setOnboardingStage("firstInsight");
-          }
+          setRetryMessage("I didn't catch that — try speaking again.");
           return;
         }
         setFirstThoughtTranscript(trimmed);
-        setCurrentInsight(deriveInsight(trimmed));
-        setRetryCount(0);
         setRetryMessage(null);
-        setOnboardingStage("firstInsight");
+        // Stay in askFirstThought — user taps mic again to confirm.
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onboardingStage, retryCount],
+    [onboardingStage],
   );
 
   const {
@@ -183,38 +162,142 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
     lang: "en-US",
   });
 
-  // ── Auto-start mic on stage entry ─────────────────────────────────────────
-  useEffect(() => {
-    if (onboardingStage === "askName" || onboardingStage === "askFirstThought") {
-      // Small delay so the stage animation finishes before the mic opens.
-      const t = setTimeout(() => startOnboardingListening(), 600);
-      return () => clearTimeout(t);
-    }
-    // Stop mic if we leave a listening stage.
-    if (onboardingStage !== "askName" && onboardingStage !== "askFirstThought") {
-      stopOnboardingListening();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboardingStage]);
+  // ── STT: post-onboarding entry ────────────────────────────────────────────
+  const entrySttOnEnd = useCallback(
+    (transcript: string) => {
+      setEntryListening(false);
+      onUserFinishedSpeaking(transcript);
+    },
+    [],
+  );
 
-  // ── Onboarding: auto-advance 'intro' → 'askName' after 3 s ───────────────
-  useEffect(() => {
-    if (onboardingStage !== "intro") return;
-    const t = setTimeout(() => setOnboardingStage("askName"), 3000);
-    return () => clearTimeout(t);
-  }, [onboardingStage]);
+  const {
+    startListening: startEntryListening,
+    stopListening: stopEntryListening,
+    isListening: entryListeningActive,
+    transcript: entryTranscript,
+  } = useSpeechToText({
+    onEnd: entrySttOnEnd,
+    continuous: false,
+    lang: "en-US",
+  });
 
-  // ── DEV ONLY: press `d` to step through stages ───────────────────────────
+  // ── Mic state machine ─────────────────────────────────────────────────────
+  /**
+   * Single entry point for ALL mic button taps.
+   * Behaviour depends on current onboarding stage and whether we are already listening.
+   */
+  const handleMicTap = useCallback(() => {
+    // ── ONBOARDING ──────────────────────────────────────────────────────────
+    if (onboardingStage === "intro") {
+      // First tap: advance to askName + start listening immediately.
+      setOnboardingStage("askName");
+      setTimeout(() => startOnboardingListening(), 300);
+      return;
+    }
+
+    if (onboardingStage === "askName") {
+      if (onboardingListening) {
+        // Stop current session early (transcript will arrive via onEnd).
+        stopOnboardingListening();
+        return;
+      }
+      if (!userName) {
+        // No name captured yet — start listening.
+        setRetryMessage(null);
+        startOnboardingListening();
+        return;
+      }
+      // Name captured — this tap confirms it; advance to askFirstThought.
+      setOnboardingStage("askFirstThought");
+      setTimeout(() => startOnboardingListening(), 300);
+      return;
+    }
+
+    if (onboardingStage === "askFirstThought") {
+      if (onboardingListening) {
+        stopOnboardingListening();
+        return;
+      }
+      if (!firstThoughtTranscript) {
+        // No thought captured yet — start listening.
+        setRetryMessage(null);
+        startOnboardingListening();
+        return;
+      }
+      // Thought captured — this tap confirms it; generate insight + advance.
+      setCurrentInsight(deriveInsight(firstThoughtTranscript));
+      setOnboardingStage("firstInsight");
+      return;
+    }
+
+    if (onboardingStage === "firstInsight") {
+      // Tap ends onboarding → normal mode.
+      setOnboardingStage("done");
+      return;
+    }
+
+    // ── POST-ONBOARDING ─────────────────────────────────────────────────────
+    if (entryListening) {
+      setEntryListening(false);
+      stopEntryListening();
+    } else {
+      setEntryListening(true);
+      setBulbState("personSpeaking");
+      startEntryListening();
+    }
+  }, [
+    onboardingStage,
+    onboardingListening,
+    userName,
+    firstThoughtTranscript,
+    entryListening,
+    startOnboardingListening,
+    stopOnboardingListening,
+    startEntryListening,
+    stopEntryListening,
+  ]);
+
+  // ── Post-onboarding entry helpers ─────────────────────────────────────────
+  const aiSay = useCallback((question: string) => {
+    setCurrentQuestion(question);
+    setBulbState("aiSpeaking");
+  }, []);
+
+  const nextQuestion = useCallback(() => {
+    questionIndex.current = (questionIndex.current + 1) % QUESTIONS.length;
+    return QUESTIONS[questionIndex.current];
+  }, []);
+
+  const handleStartEntry = () => {
+    questionIndex.current = 0;
+    setBurstKey((k) => k + 1);
+    aiSay(QUESTIONS[0]);
+  };
+
+  const handleNextPrompt = () => {
+    onNextPromptRequested();
+    if (entryListening) {
+      setEntryListening(false);
+      stopEntryListening();
+    }
+    aiSay(nextQuestion());
+  };
+
+  const handleFinishEntry = () => {
+    setEntryListening(false);
+    stopEntryListening();
+    onEntryComplete();
+  };
+
+  // ── DEV: press `d` to step through stages ────────────────────────────────
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "d") return;
       setOnboardingStage((current) => {
         const idx = STAGE_ORDER.indexOf(current);
-        // Inject mock data when fast-forwarding through capture stages.
-        if (current === "askName") {
-          setUserName("Alex");
-        }
+        if (current === "askName") setUserName("Alex");
         if (current === "askFirstThought") {
           const mock = "I've been feeling overwhelmed at work lately.";
           setFirstThoughtTranscript(mock);
@@ -227,78 +310,16 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // ── Post-onboarding AI helpers ────────────────────────────────────────────
-  const aiSay = useCallback((question: string) => {
-    setCurrentQuestion(question);
-    setPersonTranscript("");
-    setBulbState("aiSpeaking");
-  }, []);
-
-  const listen = useCallback(() => {
-    setBulbState("personSpeaking");
-  }, []);
-
-  const nextQuestion = useCallback(() => {
-    questionIndex.current = (questionIndex.current + 1) % QUESTIONS.length;
-    return QUESTIONS[questionIndex.current];
-  }, []);
-
-  // ── Event handlers ────────────────────────────────────────────────────────
-  const handleStartEntry = () => {
-    questionIndex.current = 0;
-    setBurstKey((k) => k + 1);
-    aiSay(QUESTIONS[0]);
-  };
-
-  const [entryListening, setEntryListening] = useState(false);
-
-  const handleMicToggle = () => {
-    if (entryListening) {
-      setEntryListening(false);
-      onUserFinishedSpeaking(personTranscript);
-      aiSay(nextQuestion());
-    } else {
-      setEntryListening(true);
-      listen();
-    }
-  };
-
-  const handleNextPrompt = () => {
-    onNextPromptRequested();
-    if (entryListening) setEntryListening(false);
-    if (!aiSpeaking && personTranscript) onUserFinishedSpeaking(personTranscript);
-    aiSay(nextQuestion());
-  };
-
-  const handleFinishEntry = () => {
-    setEntryListening(false);
-    onEntryComplete();
-  };
-
-  // ── Demo transcript stream (post-onboarding, entry phase only) ───────────
-  useEffect(() => {
-    if (!entryListening) return;
-    const words =
-      "I think it made me feel a little more hopeful than before, like things might actually be okay.".split(" ");
-    let i = 0;
-    setPersonTranscript("");
-    const id = setInterval(() => {
-      i += 1;
-      setPersonTranscript(words.slice(0, i).join(" "));
-      if (i >= words.length) clearInterval(id);
-    }, 180);
-    return () => clearInterval(id);
-  }, [entryListening]);
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
-  // During onboarding, show orb in listening state when mic is open.
+  // ── Derived display state ─────────────────────────────────────────────────
   const displayBulbState: BulbState = onboardingActive
     ? onboardingListening
       ? "personSpeaking"
       : "idle"
     : bulbState;
 
+  const micActive = onboardingActive ? onboardingListening : entryListening || entryListeningActive;
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <motion.div
       key="entry"
@@ -309,7 +330,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       {/* Brand logo */}
       <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
 
-      {/* firstInsight bottom panel — absolutely positioned */}
+      {/* firstInsight panel — absolutely positioned */}
       {onboardingActive && onboardingStage === "firstInsight" && (
         <OnboardingOverlay
           stage={onboardingStage}
@@ -317,12 +338,11 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
         />
       )}
 
-      {/* Title — shown only after onboarding and before entry starts. */}
+      {/* Title — shown only after onboarding and before entry starts */}
       <AnimatePresence>
         {!onboardingActive && !started && (
           <motion.h1
             key="title"
-            id="activate-agent-title"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -337,7 +357,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       {/* ── Orb + below-orb text ──────────────────────────────────────────── */}
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
         <div className="relative flex items-center justify-center">
-          {/* Burst ring on entry start */}
           <AnimatePresence>
             {burstKey > 0 && (
               <motion.span
@@ -351,7 +370,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               />
             )}
           </AnimatePresence>
-
           <BulbAvatar state={displayBulbState} size={227} />
         </div>
 
@@ -427,11 +445,10 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                     type="button"
                     onClick={() => {
                       setUserName("Alex");
-                      setTimeout(() => setOnboardingStage("askFirstThought"), 900);
                     }}
                     className="mt-2 rounded-full border border-dashed border-[#1c2b33]/20 px-4 py-1.5 text-[12px] text-[#1c2b33]/40 [font-family:'Inter',Helvetica] hover:border-[#1c2b33]/40 hover:text-[#1c2b33]/60 transition-colors"
                   >
-                    [dev] simulate name &rarr; &ldquo;Alex&rdquo;
+                    [dev] capture name &rarr; &ldquo;Alex&rdquo;
                   </button>
                 )}
               </motion.div>
@@ -457,7 +474,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                   Anything. Big, small, messy. I&apos;m here to listen.
                 </p>
                 <AnimatePresence mode="wait">
-                  {retryMessage ? (
+                  {retryMessage && (
                     <motion.span
                       key="retry"
                       initial={{ opacity: 0 }}
@@ -467,7 +484,7 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                     >
                       {retryMessage}
                     </motion.span>
-                  ) : null}
+                  )}
                 </AnimatePresence>
                 {import.meta.env.DEV && (
                   <button
@@ -475,12 +492,10 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
                     onClick={() => {
                       const mock = "I've been feeling overwhelmed at work lately.";
                       setFirstThoughtTranscript(mock);
-                      setCurrentInsight(deriveInsight(mock));
-                      setOnboardingStage("firstInsight");
                     }}
                     className="mt-2 rounded-full border border-dashed border-[#1c2b33]/20 px-4 py-1.5 text-[12px] text-[#1c2b33]/40 [font-family:'Inter',Helvetica] hover:border-[#1c2b33]/40 hover:text-[#1c2b33]/60 transition-colors"
                   >
-                    [dev] simulate first thought captured
+                    [dev] capture first thought
                   </button>
                 )}
               </motion.div>
@@ -547,45 +562,52 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
               transition={{ duration: 0.5, ease: "easeOut" }}
               className="flex w-full flex-col items-center gap-7"
             >
-              <div className="flex min-h-[64px] w-full items-end justify-center px-2">
+              <div className="flex w-full items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={handleNextPrompt}
+                  className="rounded-full border border-[#1c2b33]/15 px-5 py-2 text-[13px] [font-family:'Inter',Helvetica] text-[#1c2b33]/50 hover:border-[#1c2b33]/30 hover:text-[#1c2b33]/70 transition-colors"
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFinishEntry}
+                  className="rounded-full border border-[#1c2b33]/15 px-5 py-2 text-[13px] [font-family:'Inter',Helvetica] text-[#1c2b33]/50 hover:border-[#1c2b33]/30 hover:text-[#1c2b33]/70 transition-colors"
+                >
+                  Finish
+                </button>
               </div>
-
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* ── Bottom white mic button (fixed) ────────────────────────────── */}
+      {/* ── Bottom white mic button ───────────────────────────────────────────── */}
       <motion.button
         type="button"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 16 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        onClick={handleMicToggle}
+        onClick={handleMicTap}
         whileTap={{ scale: 0.95 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2 flex h-[56px] w-[56px] items-center justify-center rounded-full bg-white border border-[#e0e7eb] shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33] cursor-pointer z-40"
-        aria-label={entryListening ? "Stop recording" : "Start recording"}
-        aria-pressed={entryListening}
-        style={{
-          color: entryListening ? "#b6a0e0" : "#54656e",
-        }}
+        aria-label={micActive ? "Stop recording" : "Start recording"}
+        aria-pressed={micActive}
+        style={{ color: micActive ? "#b6a0e0" : "#54656e" }}
       >
-        {entryListening && (
+        {micActive && (
           <>
             <motion.span
               aria-hidden="true"
               className="absolute -inset-[4px] rounded-full border-2 border-[#b6a0e0]"
-              initial={{ opacity: 0.4, scale: 1 }}
               animate={{ opacity: [0.35, 0.85, 0.35], scale: [1, 1.1, 1] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.span
               aria-hidden="true"
               className="absolute inset-0 rounded-full"
-              style={{
-                background: "radial-gradient(circle, rgba(182,160,224,0.25) 0%, rgba(182,160,224,0) 70%)",
-              }}
+              style={{ background: "radial-gradient(circle, rgba(182,160,224,0.25) 0%, rgba(182,160,224,0) 70%)" }}
               animate={{ opacity: [0.35, 0.8, 0.35] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
             />
