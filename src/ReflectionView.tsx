@@ -10,10 +10,9 @@ import { AnimatePresence, motion, type Variants } from "motion/react";
 /* ============================================================================
  * Types — shape the AI output into these props. Plug real model output in
  * place of the mock data passed from <Frame/>:
- *   • summary        → the spoken reflection (2–3 sentences)
- *   • patterns       → recurring themes + light recurrence info
- *   • interpretation → one warm, validating paragraph (+ optional question)
- *   • nextSteps      → 1–3 tiny concrete actions
+ *   • summary   → the spoken reflection / reframe (1–3 sentences)
+ *   • patterns  → recurring themes + light recurrence info
+ *   • nextSteps → 1–3 tiny concrete actions
  * ==========================================================================*/
 export interface ReflectionPattern {
   label: string;
@@ -22,9 +21,9 @@ export interface ReflectionPattern {
 }
 
 export interface ReflectionViewProps {
+  /** The spoken reflection — written as a warm reframe (1–3 sentences). */
   summary: string;
   patterns: ReflectionPattern[];
-  interpretation: string;
   nextSteps: string[];
   /** True while the AI is "speaking" — drives the voice-bar waveform. */
   aiSpeaking: boolean;
@@ -182,13 +181,12 @@ const SectionTitle = ({ children }: { children: string }): JSX.Element => (
 export const ReflectionView = ({
   summary,
   patterns,
-  interpretation,
   nextSteps,
   aiSpeaking,
   onSummaryComplete,
   onStartDailyPractice,
 }: ReflectionViewProps): JSX.Element => {
-  // Split the summary into sentences for the progressive reveal.
+  // Split the reframe into sentences for the progressive reveal.
   const sentences = useMemo(
     () => summary.match(/[^.!?]+[.!?]+(\s|$)/g)?.map((s) => s.trim()) ?? [summary],
     [summary],
@@ -212,7 +210,7 @@ export const ReflectionView = ({
     return () => clearTimeout(t);
   }, [visible, sentences.length]);
 
-  // Once the summary is fully revealed: calm the wave, then flow the rest in.
+  // Once the reframe is fully revealed: calm the wave, then flow the rest in.
   const completedRef = useRef(false);
   useEffect(() => {
     if (visible < sentences.length || completedRef.current) return;
@@ -257,7 +255,7 @@ export const ReflectionView = ({
 
       {/* ---- Scrollable reflection content (min-h-0 so the footer stays) ---- */}
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
-        {/* 1) AI reflection summary — revealed sentence by sentence. */}
+        {/* Reframe — the spoken reflection, revealed sentence by sentence. */}
         <p className="mt-2 [font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
           {sentences.map((s, i) =>
             i < visible ? (
@@ -273,14 +271,14 @@ export const ReflectionView = ({
           )}
         </p>
 
-        {/* 2–4) Patterns → interpretation → next steps, staggered in. */}
+        {/* Patterns → next steps, staggered in after the reframe. */}
         <motion.div
           variants={container}
           initial="hidden"
           animate={contentRevealed ? "show" : "hidden"}
           className="mt-7 flex flex-col gap-7"
         >
-          {/* 2) Patterns */}
+          {/* Patterns */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Patterns</SectionTitle>
             <div className="flex flex-wrap gap-2">
@@ -302,17 +300,7 @@ export const ReflectionView = ({
             </div>
           </motion.section>
 
-          {/* 3) Interpretation / reframe */}
-          <motion.section variants={item} className="flex flex-col gap-2">
-            <SectionTitle>Reframe</SectionTitle>
-            <div className="rounded-[20px] bg-[linear-gradient(180deg,#ffffff_0%,#fdf7f7_100%)] p-4 shadow-[0_8px_28px_rgba(28,43,51,0.05)]">
-              <p className="[font-family:'Inter',Helvetica] text-[15px] font-normal leading-[23px] text-[#1c2b33]/75">
-                {interpretation}
-              </p>
-            </div>
-          </motion.section>
-
-          {/* 4) Next steps & practice */}
+          {/* Next steps & practice */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Next steps</SectionTitle>
             <ul className="flex flex-col gap-2">

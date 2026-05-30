@@ -25,16 +25,15 @@ const REFLECTION: Omit<
   ReflectionViewProps,
   "aiSpeaking" | "onSummaryComplete" | "onStartDailyPractice"
 > = {
+  // The spoken reflection is written as a warm reframe (1–3 sentences).
   summary:
-    "Given everything you're juggling, it makes sense that you feel overwhelmed. You're carrying a lot and still showing up. That deserves some gentleness.",
+    "Across your last few entries, you often mention feeling drained after saying yes to extra work. It seems like your need for rest keeps colliding with a fear of letting people down. What would it look like to protect a little more rest this week without disappointing yourself?",
   patterns: [
     { label: "Overwhelm", recurrenceLabel: "3x this week" },
     { label: "Need for rest", recurrenceLabel: "recurring" },
     { label: "Boundary setting", recurrenceLabel: "2 entries" },
     { label: "Self-criticism" },
   ],
-  interpretation:
-    "Across your last few entries, you often mention feeling drained after saying yes to extra work. It seems like your need for rest keeps colliding with a fear of letting people down. What would it look like to protect a little more rest this week without disappointing yourself?",
   nextSteps: [
     "Block 20 minutes of unscheduled rest today.",
     "Say no to one non-essential request.",
@@ -321,7 +320,6 @@ export const Frame = (): JSX.Element => {
               key="reflection"
               summary={REFLECTION.summary}
               patterns={REFLECTION.patterns}
-              interpretation={REFLECTION.interpretation}
               nextSteps={REFLECTION.nextSteps}
               aiSpeaking={reflectionSpeaking}
               onSummaryComplete={() => setReflectionSpeaking(false)}
