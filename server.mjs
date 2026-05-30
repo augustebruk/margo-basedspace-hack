@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: "/vercel/share/.env.project" });
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_LIVE_MODEL || "gemini-2.0-flash-live-preview-04-09";
+const MODEL = process.env.GEMINI_LIVE_MODEL || "gemini-2.5-flash-live-preview";
 const PORT = process.env.WS_PORT || 8787;
 
 if (!API_KEY) {
