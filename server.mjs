@@ -29,6 +29,63 @@ wss.on("connection", async (browserWs) => {
     // Establish Gemini Live session
     geminiSession = await ai.live.connect({
       model: MODEL,
+      callbacks: {
+        onopen: () => {
+          console.log(`[${sessionId}] Gemini session opened`);
+        },
+        onmessage: (msg) => {
+          if (msg.serverContent?.modelTurn) {
+            const parts = msg.serverContent.modelTurn.parts || [];
+            for (const part of parts) {
+              // Text response
+              if (part.text) {
+                browserWs.send(
+                  JSON.stringify({
+                    type: "text",
+                    text: part.text,
+                  })
+                );
+                console.log(`[${sessionId}] AI text: ${part.text.substring(0, 50)}...`);
+              }
+
+              // Audio response (24kHz PCM16)
+              if (part.inlineData) {
+                browserWs.send(
+                  JSON.stringify({
+                    type: "audio",
+                    data: part.inlineData.data,
+                    mimeType: part.inlineData.mimeType,
+                  })
+                );
+                console.log(`[${sessionId}] AI audio chunk: ${part.inlineData.data.length} bytes`);
+              }
+            }
+          }
+
+          // Server-side turn complete (user finished speaking, AI is done)
+          if (msg.serverContent?.turnComplete) {
+            browserWs.send(
+              JSON.stringify({
+                type: "turnComplete",
+              })
+            );
+            console.log(`[${sessionId}] Turn complete`);
+          }
+        },
+        onerror: (err) => {
+          console.error(`[${sessionId}] Gemini error:`, err);
+          browserWs.send(
+            JSON.stringify({
+              type: "error",
+              message: err.message,
+            })
+          );
+        },
+        onclose: () => {
+          console.log(`[${sessionId}] Gemini session closed`);
+          browserWs.close();
+        },
+      },
       config: {
         responseModalities: ["AUDIO", "TEXT"],
         systemInstruction:
@@ -39,62 +96,6 @@ wss.on("connection", async (browserWs) => {
     });
 
     console.log(`[${sessionId}] Gemini session connected`);
-
-    // Handle Gemini messages back to the browser
-    geminiSession.on("message", (msg) => {
-      if (msg.serverContent?.modelTurn) {
-        const parts = msg.serverContent.modelTurn.parts || [];
-        for (const part of parts) {
-          // Text response
-          if (part.text) {
-            browserWs.send(
-              JSON.stringify({
-                type: "text",
-                text: part.text,
-              })
-            );
-            console.log(`[${sessionId}] AI text: ${part.text.substring(0, 50)}...`);
-          }
-
-          // Audio response (24kHz PCM16)
-          if (part.inlineData) {
-            browserWs.send(
-              JSON.stringify({
-                type: "audio",
-                data: part.inlineData.data,
-                mimeType: part.inlineData.mimeType,
-              })
-            );
-            console.log(`[${sessionId}] AI audio chunk: ${part.inlineData.data.length} bytes`);
-          }
-        }
-      }
-
-      // Server-side turn complete (user finished speaking, AI is done)
-      if (msg.serverContent?.turnComplete) {
-        browserWs.send(
-          JSON.stringify({
-            type: "turnComplete",
-          })
-        );
-        console.log(`[${sessionId}] Turn complete`);
-      }
-    });
-
-    geminiSession.on("error", (err) => {
-      console.error(`[${sessionId}] Gemini error:`, err);
-      browserWs.send(
-        JSON.stringify({
-          type: "error",
-          message: err.message,
-        })
-      );
-    });
-
-    geminiSession.on("close", () => {
-      console.log(`[${sessionId}] Gemini session closed`);
-      browserWs.close();
-    });
 
     // Handle browser messages
     browserWs.on("message", (data) => {
