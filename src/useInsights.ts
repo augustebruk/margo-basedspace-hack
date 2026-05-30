@@ -36,59 +36,71 @@ interface UseInsightsResult {
   generating: boolean;
   usedFallback: boolean;
   /**
+   * The `key` (e.g. the selected range) the current `insights` belongs to, or
+   * `null` before anything has resolved. Lets the view tell a *fresh* result
+   * for the current range apart from a *stale* one left over from a previous
+   * range, so it can show a loading skeleton instead of the old narrative.
+   */
+  resultKey: string | null;
+  /**
    * Generate the period reflection from a digest of the in-range entries via
    * the `/api/reflection` proxy in `insights` mode. Falls back to
    * `MOCK_INSIGHTS` if the digest is empty, the key is missing, or the request
    * fails. Guarded by a request id so a slower earlier range can't overwrite a
-   * newer one when the user switches ranges quickly.
+   * newer one when the user switches ranges quickly. `key` tags the result
+   * (pass the range) so the view knows which selection it corresponds to.
    */
-  generate: (digest: string, name?: string) => Promise<void>;
+  generate: (digest: string, name?: string, key?: string) => Promise<void>;
 }
 
 export function useInsights(): UseInsightsResult {
   const [insights, setInsights] = useState<Insights>(MOCK_INSIGHTS);
   const [generating, setGenerating] = useState(false);
   const [usedFallback, setUsedFallback] = useState(true);
+  const [resultKey, setResultKey] = useState<string | null>(null);
   const requestId = useRef(0);
 
-  const generate = useCallback(async (digest: string, name?: string) => {
-    const id = ++requestId.current;
-    setGenerating(true);
+  const generate = useCallback(
+    async (digest: string, name?: string, key?: string) => {
+      const id = ++requestId.current;
+      const tag = key ?? null;
+      setGenerating(true);
 
-    const fall = () => {
-      if (id !== requestId.current) return;
-      setInsights(MOCK_INSIGHTS);
-      setUsedFallback(true);
-    };
+      const settle = (next: Insights, fallback: boolean) => {
+        if (id !== requestId.current) return;
+        setInsights(next);
+        setUsedFallback(fallback);
+        setResultKey(tag);
+      };
 
-    if (!digest.trim()) {
-      fall();
-      setGenerating(false);
-      return;
-    }
-
-    try {
-      const res = await fetch(INSIGHTS_ENDPOINT, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ transcript: digest, mode: "insights", name }),
-      });
-
-      if (!res.ok) {
-        fall();
+      if (!digest.trim()) {
+        settle(MOCK_INSIGHTS, true);
+        if (id === requestId.current) setGenerating(false);
         return;
       }
 
-      const data = (await res.json()) as Insights;
-      if (id !== requestId.current) return; // superseded
-      setInsights(data);
-      setUsedFallback(false);
-    } catch {
-      fall();
-    } finally {
-      if (id === requestId.current) setGenerating(false);
-    }
-  }, []);
+      try {
+        const res = await fetch(INSIGHTS_ENDPOINT, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ transcript: digest, mode: "insights", name }),
+        });
 
-  return { insights, generating, usedFallback, generate };
+        if (!res.ok) {
+          settle(MOCK_INSIGHTS, true);
+          return;
+        }
+
+        const data = (await res.json()) as Insights;
+        settle(data, false); // no-op if superseded
+      } catch {
+        settle(MOCK_INSIGHTS, true);
+      } finally {
+        if (id === requestId.current) setGenerating(false);
+      }
+    },
+    [],
+  );
+
+  return { insights, generating, usedFallback, resultKey, generate };
 }

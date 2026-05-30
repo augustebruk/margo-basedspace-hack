@@ -128,19 +128,27 @@ export const InsightsView = ({
     [data.entries],
   );
 
-  const { insights, generating, usedFallback, generate } = useInsights();
+  const { insights, generating, resultKey, generate } = useInsights();
 
   // (Re)generate the AI period reflection whenever the range (and thus the set
   // of in-range entries) changes. `useInsights` is guarded by a request id so a
-  // slower earlier range can't clobber a newer one.
+  // slower earlier range can't clobber a newer one. We tag each result with the
+  // range so the view can tell a fresh narrative for the *current* range apart
+  // from a stale one left over from the previous range.
   useEffect(() => {
     if (data.entryCount === 0) return;
-    void generate(buildInsightsDigest(data.entries), name);
+    void generate(buildInsightsDigest(data.entries), name, range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range, data.entryCount]);
 
   const hasEntries = data.entryCount > 0;
-  const showNarrative = hasEntries && !(generating && usedFallback);
+  // Only show the narrative (real or fallback) once we have a *finished* result
+  // tagged to the *current* range. While generating — or while still holding a
+  // stale result from the previous range — fall through to the skeleton so a
+  // range switch always shows a visible loading state and never lingers on the
+  // old period's text. (`usedFallback` content is still a valid, finished
+  // narrative — the gentle generic copy — so we render it too.)
+  const showNarrative = hasEntries && resultKey === range && !generating;
 
   return (
     <motion.div
@@ -255,11 +263,24 @@ export const InsightsView = ({
                 )}
               </>
             ) : (
-              // Soft skeleton while the first narrative generates.
-              <div className="flex flex-col gap-2.5" aria-hidden="true">
-                <div className="h-5 w-3/4 animate-pulse rounded-full bg-white/70" />
-                <div className="h-4 w-full animate-pulse rounded-full bg-white/60" />
-                <div className="h-4 w-5/6 animate-pulse rounded-full bg-white/60" />
+              // Soft skeleton standing in for the narrative while it generates,
+              // mirroring its shape: a bold headline, a couple of through-line
+              // rows, and the purple closing question.
+              <div
+                className="flex flex-col gap-2.5"
+                role="status"
+                aria-label="Generating insights"
+              >
+                {/* headline (text-[20px] font-medium) */}
+                <div className="h-[26px] w-4/5 animate-pulse rounded-full bg-[#1c2b33]/12" />
+                {/* throughLine (text-[16px], 2 rows) */}
+                <div className="h-[19px] w-full animate-pulse rounded-full bg-[#1c2b33]/[0.08]" />
+                <div className="h-[19px] w-11/12 animate-pulse rounded-full bg-[#1c2b33]/[0.08]" />
+                {/* shift (text-[15px]) */}
+                <div className="h-[18px] w-2/3 animate-pulse rounded-full bg-[#1c2b33]/[0.07]" />
+                {/* question (text-[16px] purple) */}
+                <div className="mt-1 h-[19px] w-3/4 animate-pulse rounded-full bg-[#a07ee0]/30" />
+                <span className="sr-only">Generating insights…</span>
               </div>
             )}
           </motion.section>
