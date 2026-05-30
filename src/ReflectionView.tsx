@@ -77,87 +77,6 @@ const Waveform = ({ active }: { active: boolean }): JSX.Element => (
 );
 
 /* -------------------------------------------------------------------------- */
-/* PracticeCard — light surface card with a tiny interactive element.         */
-/* -------------------------------------------------------------------------- */
-const PracticeCard = (): JSX.Element => {
-  const [done, setDone] = useState(false);
-  const [seconds, setSeconds] = useState(120);
-  const [running, setRunning] = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (!running) return;
-    timer.current = setInterval(() => {
-      setSeconds((s) => {
-        if (s <= 1) {
-          setRunning(false);
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, [running]);
-
-  const mmss = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-
-  return (
-    <div className="rounded-[20px] bg-[linear-gradient(180deg,#ffffff_0%,#fdf6ff_100%)] p-4 shadow-[0_8px_28px_rgba(28,43,51,0.06)]">
-      <p className="[font-family:'Inter',Helvetica] text-[15px] font-semibold text-[#1c2b33]">
-        2-minute reset
-      </p>
-      <p className="mt-1 [font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
-        A short breathing pause to ease the overwhelm before you move on.
-      </p>
-
-      <div className="mt-3 flex items-center justify-between">
-        {/* Tiny timer */}
-        <button
-          type="button"
-          onClick={() => setRunning((r) => !r)}
-          className="all-[unset] box-border flex cursor-pointer items-center gap-2 rounded-full bg-[rgba(244,231,255,0.5)] px-3 py-1.5"
-        >
-          <span className="[font-family:'Inter',Helvetica] text-[13px] font-medium tabular-nums text-[#54656e]">
-            {mmss}
-          </span>
-          <span className="[font-family:'Inter',Helvetica] text-[12px] font-medium text-[#54656e]/70">
-            {running ? "Pause" : seconds === 0 ? "Done" : "Start"}
-          </span>
-        </button>
-
-        {/* Mark-as-done checkbox */}
-        <button
-          type="button"
-          onClick={() => setDone((d) => !d)}
-          aria-pressed={done}
-          className="all-[unset] box-border flex cursor-pointer items-center gap-2"
-        >
-          <span
-            className={
-              "flex h-5 w-5 items-center justify-center rounded-md border transition-colors " +
-              (done
-                ? "border-transparent bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
-                : "border-[#1c2b33]/15 bg-white")
-            }
-          >
-            {done && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M5 12.5l4.5 4.5L19 7" />
-              </svg>
-            )}
-          </span>
-          <span className="[font-family:'Inter',Helvetica] text-[13px] font-medium text-[#54656e]">
-            I'll try this
-          </span>
-        </button>
-      </div>
-    </div>
-  );
-};
-
-/* -------------------------------------------------------------------------- */
 /* Section stagger variants — content "flows down" after the summary.         */
 /* -------------------------------------------------------------------------- */
 const container: Variants = {
@@ -300,7 +219,7 @@ export const ReflectionView = ({
             </div>
           </motion.section>
 
-          {/* Next steps & practice */}
+          {/* Next steps */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Next steps</SectionTitle>
             <ul className="flex flex-col gap-2">
@@ -316,7 +235,6 @@ export const ReflectionView = ({
                 </li>
               ))}
             </ul>
-            <PracticeCard />
           </motion.section>
         </motion.div>
       </div>
