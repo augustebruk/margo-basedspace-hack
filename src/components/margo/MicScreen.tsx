@@ -177,7 +177,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
     startListening: startOnboardingListening,
     stopListening: stopOnboardingListening,
     isListening: onboardingListening,
-    transcript: onboardingTranscript,
   } = useSpeechToText({
     onEnd: onboardingSttOnEnd,
     continuous: false,
@@ -314,7 +313,6 @@ export const MicScreen = ({ onEntryComplete }: MicScreenProps): JSX.Element => {
       {onboardingActive && onboardingStage === "firstInsight" && (
         <OnboardingOverlay
           stage={onboardingStage}
-          transcript={firstThoughtTranscript ?? undefined}
           insight={currentInsight ?? undefined}
         />
       )}

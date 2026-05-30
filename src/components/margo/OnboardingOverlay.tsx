@@ -14,15 +14,12 @@ import type { Insight } from "../../lib/insightEngine";
 
 interface OnboardingOverlayProps {
   stage: OnboardingStage;
-  /** The user's captured "first thought" transcript. */
-  transcript?: string;
   /** Derived insight to display in the firstInsight panel. */
   insight?: Insight;
 }
 
 export const OnboardingOverlay = ({
   stage,
-  transcript,
   insight,
 }: OnboardingOverlayProps): JSX.Element => {
   return (
@@ -38,19 +35,10 @@ export const OnboardingOverlay = ({
         >
           <div className="flex flex-col gap-1">
             <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[10px] text-[#1c2b33]/40">
-              You said
-            </span>
-            <p className="[font-family:'Inter',Helvetica] font-normal text-[14px] leading-[1.5] text-[#1c2b33]/70">
-              &ldquo;{transcript ?? "…"}&rdquo;
-            </p>
-          </div>
-          <div className="h-px w-full bg-[#1c2b33]/8" />
-          <div className="flex flex-col gap-1">
-            <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[10px] text-[#1c2b33]/40">
               Margo notices
             </span>
             <p className="[font-family:'Inter',Helvetica] font-normal text-[14px] leading-[1.5] text-[#1c2b33]/70">
-              {insight?.notice ?? "Just the act of putting words to something you've been carrying can shift how it feels."}
+              {insight?.notice ?? "Just the act of putting words to something you've been carrying can shift how it feels. Keep going."}
             </p>
           </div>
         </motion.div>
