@@ -166,31 +166,29 @@ export const Frame = (): JSX.Element => {
               // the voice bar on the next screen.
               exit={{ opacity: 0, y: -60, scale: 0.92 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="relative flex h-full w-full flex-col items-center px-6 pt-7 pb-8"
+              className="relative flex h-full w-full flex-col items-center px-6 pt-[118px] pb-8"
             >
               {/* Brand logo, anchored at the top of the entry screen. */}
               <MargoLogo className="absolute top-7 left-1/2 -translate-x-1/2" />
 
-              {/* Centered cluster — title, orb, question and the action sit
-                  close together so the padding around the orb stays tight. */}
-              <div className="flex w-full flex-1 flex-col items-center justify-center gap-7">
-                {/* Title fades out and unmounts once the entry starts. */}
-                <AnimatePresence>
-                  {!started && (
-                    <motion.h1
-                      key="title"
-                      id="activate-agent-title"
-                      initial={false}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.4, ease: "easeOut" }}
-                      className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.25] whitespace-nowrap pb-px"
-                    >
-                      Activate Agent
-                    </motion.h1>
-                  )}
-                </AnimatePresence>
+              {/* Title fades out and unmounts once the entry starts. */}
+              <AnimatePresence>
+                {!started && (
+                  <motion.h1
+                    key="title"
+                    id="activate-agent-title"
+                    initial={false}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.25] whitespace-nowrap pb-px"
+                  >
+                    Activate Agent
+                  </motion.h1>
+                )}
+              </AnimatePresence>
 
-                {/* Orb */}
+              {/* Bulb + AI question stack, vertically centered. */}
+              <div className="flex w-full flex-1 flex-col items-center justify-center gap-9">
                 <div className="relative flex items-center justify-center">
                   <AnimatePresence>
                     {burstKey > 0 && (
@@ -208,7 +206,6 @@ export const Frame = (): JSX.Element => {
                   <BulbAvatar state={bulbState} />
                 </div>
 
-                {/* AI question — visible only while the AI is speaking. */}
                 <AnimatePresence mode="wait">
                   {aiSpeaking && (
                     <motion.p
@@ -223,32 +220,60 @@ export const Frame = (): JSX.Element => {
                     </motion.p>
                   )}
                 </AnimatePresence>
+              </div>
 
-                {/* Action area — Start Entry (idle) or transcript + controls. */}
+              {/* Bottom block: Start Entry (idle) OR transcript + controls. */}
+              <div className="flex w-full flex-col items-center">
                 <AnimatePresence mode="wait">
                   {!started ? (
-                    <motion.button
+                    <motion.div
                       key="start"
-                      type="button"
-                      onClick={handleStartEntry}
-                      exit={{ opacity: 0, y: 18 }}
-                      transition={{ duration: 0.4, ease: "easeIn" }}
-                      className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-                      aria-label="Start Entry"
+                      exit={{ opacity: 0, y: 28 }}
+                      transition={{ duration: 0.5, ease: "easeIn" }}
+                      className="flex w-full flex-col items-center gap-[60px]"
                     >
-                      <span className="relative [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
-                        Start Entry
-                      </span>
-                    </motion.button>
+                      <button
+                        type="button"
+                        onClick={handleStartEntry}
+                        className="all-[unset] box-border inline-flex items-center justify-center gap-2.5 px-[72px] py-3.5 relative rounded-[100px] bg-[linear-gradient(90deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+                        aria-label="Start Entry"
+                      >
+                        <span className="relative [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-lg text-center tracking-[-0.36px] leading-[1.3] whitespace-nowrap">
+                          Start Entry
+                        </span>
+                      </button>
+                      <p className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]">
+                        <span className="text-[#1c2b33b8] tracking-[-0.05px]">
+                          By tapping &apos;Start Entry&apos; and using our app,
+                          you&apos;re agreeing to our{" "}
+                        </span>
+                        <a
+                          href={legalLinks[0].href}
+                          className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
+                        >
+                          {legalLinks[0].label}
+                        </a>
+                        <span className="text-[#1c2b33b8] tracking-[-0.05px]">
+                          {" "}
+                          and{" "}
+                        </span>
+                        <a
+                          href={legalLinks[1].href}
+                          className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
+                        >
+                          {legalLinks[1].label}
+                        </a>
+                      </p>
+                    </motion.div>
                   ) : (
                     <motion.div
                       key="live"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
-                      className="flex w-full flex-col items-center gap-6"
+                      className="flex w-full flex-col items-center gap-7"
                     >
-                      <div className="flex min-h-[56px] w-full items-end justify-center px-2">
+                      <div className="flex min-h-[64px] w-full items-end justify-center px-2">
                         <AnimatePresence mode="wait">
                           {personSpeaking && (
                             <motion.div
@@ -280,40 +305,6 @@ export const Frame = (): JSX.Element => {
                   )}
                 </AnimatePresence>
               </div>
-
-              {/* Legal copy — pinned to the bottom on the idle screen only. */}
-              <AnimatePresence>
-                {!started && (
-                  <motion.p
-                    key="legal"
-                    initial={false}
-                    exit={{ opacity: 0, y: 16 }}
-                    transition={{ duration: 0.35, ease: "easeIn" }}
-                    className="relative self-stretch [font-family:'Inter',Helvetica] font-normal text-transparent text-base text-center tracking-[-0.32px] leading-[22px]"
-                  >
-                    <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                      By tapping &apos;Start Entry&apos; and using our app,
-                      you&apos;re agreeing to our{" "}
-                    </span>
-                    <a
-                      href={legalLinks[0].href}
-                      className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
-                    >
-                      {legalLinks[0].label}
-                    </a>
-                    <span className="text-[#1c2b33b8] tracking-[-0.05px]">
-                      {" "}
-                      and{" "}
-                    </span>
-                    <a
-                      href={legalLinks[1].href}
-                      className="text-[#00b2ff] tracking-[-0.05px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00b2ff] rounded-sm"
-                    >
-                      {legalLinks[1].label}
-                    </a>
-                  </motion.p>
-                )}
-              </AnimatePresence>
             </motion.div>
           ) : (
             <ReflectionView
