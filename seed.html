@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Margo — Seed demo data</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0e1418;
+        color: #e7eef2;
+        display: flex;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+      }
+      .card {
+        max-width: 420px;
+        padding: 32px;
+        text-align: center;
+      }
+      h1 { font-size: 20px; font-weight: 600; }
+      p { opacity: 0.7; line-height: 1.5; font-size: 14px; }
+      button {
+        margin-top: 16px;
+        padding: 12px 20px;
+        border: 0;
+        border-radius: 12px;
+        background: #6d8a9a;
+        color: white;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.secondary { background: transparent; border: 1px solid #6d8a9a; }
+      pre { text-align: left; font-size: 11px; opacity: 0.5; max-height: 30vh; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Margo demo data</h1>
+      <p id="status">Loading 15 sample entries…</p>
+      <button id="seed">Seed &amp; open app</button>
+      <button id="clear" class="secondary">Clear all entries</button>
+    </div>
+    <script>
+      // ====================================================================
+      // Demo seed data — 15 realistic voice-journal entries spread randomly
+      // across the past ~3 months. Themes: founding a startup, overworking,
+      // anxiety, her relationship (Daniel), and travel. Built so the atom
+      // graph + insights read richly, and so the live demo beat lands:
+      // "my boyfriend proposed but I feel anxious — in my circle people stay
+      // single until Series B."
+      // ====================================================================
+      const DAY = 86400000;
+      const now = Date.now();
+
+      // Helper: build an entry. daysAgo + jitter give random-ish spacing.
+      function entry(daysAgo, hour, minute, topic, durationMin, transcript, summary, patterns, nextSteps, graph) {
+        const d = new Date(now - daysAgo * DAY);
+        d.setHours(hour, minute, 0, 0);
+        const text = transcript.trim();
+        const wordCount = text
+          .split("\n")
+          .filter((l) => !/^\s*Q:/.test(l))
+          .join(" ")
+          .replace(/^\s*A:\s*/gm, " ")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean).length;
+        return {
+          id: "seed-" + daysAgo + "-" + hour + minute,
+          createdAt: d.getTime(),
+          topic,
+          durationMs: durationMin * 60000,
+          wordCount,
+          transcript: text,
+          reflection: { topic, summary, patterns, nextSteps, graph },
+        };
+      }
+
+      const ENTRIES = [];
+
+      // 1 — ~86 days ago — the decision to go all-in
+      ENTRIES.push(entry(86, 22, 14,
+        "Quitting to build the thing",
+        7,
+        `Q: How was your day?
+A: Big day. I finally told my manager I'm leaving. I've been sitting on this idea for almost a year and I just couldn't keep doing it on the side anymore. It feels real now, like terrifyingly real.
+
+Q: What does that fear feel like right now?
+A: It's in my chest mostly. Excitement and dread are kind of the same feeling apparently. I have maybe ten months of savings. Daniel was really supportive, he said he believes in me, but I could tell he was doing the math in his head too.
+
+Q: What made today feel like the right moment to finally do it?
+A: I kept telling myself I'd start when it was safe and it's never going to be safe. If I wait until it's safe I'll be forty and still talking about the idea I never built.`,
+        "Choosing the uncertain thing because the safe version of waiting was its own kind of risk — that's not recklessness, that's clarity.",
+        [{ label: "fear and excitement feel identical", recurrenceLabel: "new" }, { label: "waiting for 'safe'" }],
+        ["Write down the actual 10-month runway number so it's a fact, not a dread.", "Tell one more person who'll hold you to it."],
+        { nodes: [
+          { label: "Daniel", type: "person", mention: "Daniel was really supportive, he said he believes in me" },
+          { label: "the startup", type: "situation", mention: "I've been sitting on this idea for almost a year" },
+          { label: "quitting my job", type: "situation", mention: "I finally told my manager I'm leaving" },
+          { label: "dread", type: "feeling", mention: "excitement and dread are kind of the same feeling" }
+        ], links: [
+          { source: "quitting my job", target: "the startup", relation: "going all in on" },
+          { source: "the startup", target: "dread", relation: "terrifyingly real" },
+          { source: "Daniel", target: "the startup", relation: "believes in me" }
+        ] }
+      ));
+
+      // 2 — ~80 days ago — first nights of overworking
+      ENTRIES.push(entry(80, 1, 3,
+        "1am, still wired",
+        4,
+        `Q: How was your day?
+A: It's 1am. I've been at the laptop since 8 this morning, I think I forgot to eat lunch again. But the landing page is finally live and three people signed up tonight, three strangers, which is wild.
+
+Q: What's keeping you up past 1am?
+A: I can't turn my brain off. Every time I close the laptop the to-do list just keeps running. Daniel went to bed hours ago. I keep telling myself just one more thing.`,
+        "Three strangers chose your thing tonight — and you still couldn't let yourself feel it because the list kept running. The 'one more thing' loop is worth watching.",
+        [{ label: "skipping meals", recurrenceLabel: "new" }, { label: "'just one more thing'" }],
+        ["Set a hard laptop-closed time tomorrow, even 11pm.", "Eat one real meal away from the desk."],
+        { nodes: [
+          { label: "the startup", type: "situation", mention: "the landing page is finally live and three people signed up" },
+          { label: "Daniel", type: "person", mention: "Daniel went to bed hours ago" },
+          { label: "overworking", type: "situation", mention: "I've been at the laptop since 8 this morning" },
+          { label: "can't switch off", type: "feeling", mention: "I can't turn my brain off" }
+        ], links: [
+          { source: "overworking", target: "can't switch off", relation: "brain won't stop" },
+          { source: "overworking", target: "the startup", relation: "all hours for" }
+        ] }
+      ));
+
+      // 3 — ~74 days ago — a good relationship day
+      ENTRIES.push(entry(74, 20, 41,
+        "A real evening with Daniel",
+        3,
+        `Q: How was your day?
+A: We actually took the whole evening off. Daniel cooked, we didn't talk about work or the company once, we just watched a dumb movie. I forgot how much I miss him even when he's right next to me.
+
+Q: What was different about tonight?
+A: I let myself be a person instead of a founder for a few hours. He noticed. He said it's nice to have me back.`,
+        "You let yourself be a person instead of a founder, and the relationship breathed. He even has a word for the version of you that disappears.",
+        [{ label: "disappearing into work" }, { label: "Daniel notices when I'm gone", recurrenceLabel: "new" }],
+        ["Protect one no-work evening a week with Daniel."],
+        { nodes: [
+          { label: "Daniel", type: "person", mention: "He said it's nice to have me back" },
+          { label: "our relationship", type: "situation", mention: "we just watched a dumb movie" },
+          { label: "the startup", type: "situation", mention: "we didn't talk about work or the company once" },
+          { label: "missing him", type: "feeling", mention: "I forgot how much I miss him even when he's right next to me" }
+        ], links: [
+          { source: "Daniel", target: "our relationship", relation: "took the evening off together" },
+          { source: "the startup", target: "missing him", relation: "pulls me away from" },
+          { source: "Daniel", target: "missing him", relation: "back when I'm present" }
+        ] }
+      ));
+
+      window.__ENTRIES = ENTRIES;
+
+      // 4 — ~68 days ago — bringing on a cofounder
+      ENTRIES.push(entry(68, 19, 12,
+        "Maya's in",
+        5,
+        `Q: How was your day?
+A: Maya said yes. She's leaving her job at the end of the month to do this with me. I have a cofounder now. It's not just my little side project, there's another whole human betting her career on this.
+
+Q: How does it feel to share the weight?
+A: Honestly relieved and more scared at the same time. Relieved because I'm not alone in the spreadsheet at 2am anymore. More scared because now if it fails I've taken someone down with me.
+
+Q: Whose disappointment are you actually afraid of?
+A: Maya's. And my parents', a little. They still think I'm being irresponsible. My mum asked if I'd thought about freezing my eggs since I'm 'putting everything else first.' I didn't have an answer.`,
+        "Sharing the weight made it lighter and heavier at once. And notice the egg comment landed — there's a clock other people keep starting for you.",
+        [{ label: "responsibility for others", recurrenceLabel: "new" }, { label: "family doubts the path" }, { label: "fear of failing publicly" }],
+        ["Name out loud with Maya what 'failing' actually looks like so it's not a monster.", "Decide what you think about the timeline question — not your mum."],
+        { nodes: [
+          { label: "Maya", type: "person", mention: "Maya said yes. She's leaving her job to do this with me" },
+          { label: "my parents", type: "person", mention: "They still think I'm being irresponsible" },
+          { label: "the startup", type: "situation", mention: "there's another whole human betting her career on this" },
+          { label: "fear of letting people down", type: "feeling", mention: "if it fails I've taken someone down with me" }
+        ], links: [
+          { source: "Maya", target: "the startup", relation: "cofounder now" },
+          { source: "Maya", target: "fear of letting people down", relation: "scared to fail her" },
+          { source: "my parents", target: "fear of letting people down", relation: "think I'm irresponsible" }
+        ] }
+      ));
+
+      // 5 — ~61 days ago — short anxious entry
+      ENTRIES.push(entry(61, 7, 52,
+        "Woke up with my heart racing",
+        2,
+        `Q: How was your day?
+A: It hasn't started yet, it's early. I woke up with my heart already going. There's no specific thing, it's just this low hum of dread under everything. First investor call is Thursday and I think my body started the meeting without me.`,
+        "Your body booked the meeting three days early. The dread isn't about Thursday — it's the not-knowing it's standing in for.",
+        [{ label: "anticipatory anxiety", recurrenceLabel: "2x this week" }, { label: "waking up already anxious" }],
+        ["Before the call, write the worst realistic outcome — it's smaller on paper.", "Two minutes of slow breathing before your feet hit the floor."],
+        { nodes: [
+          { label: "investor call", type: "situation", mention: "First investor call is Thursday" },
+          { label: "anxiety", type: "feeling", mention: "this low hum of dread under everything" },
+          { label: "the startup", type: "situation", mention: "my body started the meeting without me" }
+        ], links: [
+          { source: "investor call", target: "anxiety", relation: "body started early" },
+          { source: "the startup", target: "anxiety", relation: "low hum of dread" }
+        ] }
+      ));
+
+      // 6 — ~54 days ago — the trip to Lisbon
+      ENTRIES.push(entry(54, 23, 30,
+        "Lisbon, supposedly a break",
+        6,
+        `Q: How was your day?
+A: I'm in Lisbon. It was meant to be a real holiday with Daniel, our first proper trip in over a year, and I spent the morning on the balcony answering Maya about the deck instead of being with him. He didn't say anything but he went for a walk alone.
+
+Q: What stopped you from closing the laptop?
+A: I keep thinking the company will fall apart if I look away for two days. Which is insane, it's two days. But there's this voice that says other founders don't take holidays, the ones who win just don't stop.
+
+Q: Where did you first hear that voice?
+A: Honestly? Twitter. Everyone I follow is grinding and raising and I'm comparing my inside to their highlight reel. Meanwhile Daniel's down on the street waiting for me and I'm up here proving something to strangers.`,
+        "You flew to Lisbon to be with Daniel and stayed on the balcony performing for strangers online. The voice telling you winners never stop isn't yours — it's borrowed.",
+        [{ label: "comparing to other founders", recurrenceLabel: "new" }, { label: "work invades rest" }, { label: "Daniel waits while I work" }],
+        ["Put the laptop in the hotel safe for the last day. Test the catastrophe.", "Mute three of the loudest grind accounts."],
+        { nodes: [
+          { label: "Daniel", type: "person", mention: "he went for a walk alone" },
+          { label: "Maya", type: "person", mention: "answering Maya about the deck" },
+          { label: "Lisbon trip", type: "situation", mention: "our first proper trip in over a year" },
+          { label: "the startup", type: "situation", mention: "the company will fall apart if I look away" },
+          { label: "comparison", type: "feeling", mention: "comparing my inside to their highlight reel" }
+        ], links: [
+          { source: "Lisbon trip", target: "the startup", relation: "couldn't unplug" },
+          { source: "Daniel", target: "Lisbon trip", relation: "walked off alone" },
+          { source: "the startup", target: "comparison", relation: "founders who win don't stop" }
+        ] }
+      ));
+
+      // 7 — ~48 days ago — first investor yes (small)
+      ENTRIES.push(entry(48, 18, 5,
+        "First check",
+        4,
+        `Q: How was your day?
+A: We got our first angel check. It's small but it's real money from someone who isn't related to me. I should be over the moon and I am, for about an hour, and then the goalpost just moved and now I'm anxious about the round.
+
+Q: What happens in the gap between the win and the worry?
+A: Almost nothing. I don't let it land. It's like the relief has a half life of about forty minutes and then I'm back to the next mountain.`,
+        "The win had a forty-minute half-life. You're getting very good at climbing and very bad at arriving.",
+        [{ label: "can't let wins land", recurrenceLabel: "3x this month" }, { label: "moving goalposts" }],
+        ["Tonight, no next mountain — just tell Daniel and Maya the win out loud."],
+        { nodes: [
+          { label: "the startup", type: "situation", mention: "We got our first angel check" },
+          { label: "raising the round", type: "situation", mention: "now I'm anxious about the round" },
+          { label: "can't celebrate", type: "feeling", mention: "the relief has a half life of about forty minutes" }
+        ], links: [
+          { source: "the startup", target: "can't celebrate", relation: "win didn't land" },
+          { source: "raising the round", target: "can't celebrate", relation: "goalpost moved" }
+        ] }
+      ));
+
+      // 8 — ~41 days ago — the fight
+      ENTRIES.push(entry(41, 21, 47,
+        "We had a real fight",
+        5,
+        `Q: How was your day?
+A: Daniel and I had our first proper fight in a long time. He said he feels like he's dating the company and not me. I got defensive and said this is the most important year of my life and he should get it. He said 'so I just wait?' and I didn't have a good answer.
+
+Q: What was underneath your defensiveness?
+A: Guilt, probably. Because he's right. I've turned him into a roommate who's nice to me. But I also resent that I have to choose, like nobody asks the guys I know to pick between the round and their girlfriend.
+
+Q: What would it mean if you didn't have to choose?
+A: I don't even know what that looks like. Everyone I admire seems to have sacrificed the personal stuff to get here. Half my founder friends are single and proud of it. There's this whole thing in my world that you don't settle down until you've got traction, like you're not allowed a private life until the company's safe.`,
+        "He said he's dating the company. You heard it, agreed, and still defended the wall — because the story you've absorbed says love is something you earn back later, after the company is safe.",
+        [{ label: "Daniel feels second to the company", recurrenceLabel: "recurring" }, { label: "love deferred until 'safe'" }, { label: "resentment about choosing" }],
+        ["Tell Daniel the part you didn't say: that he's right and you're scared.", "Question the rule — who exactly said no private life until traction?"],
+        { nodes: [
+          { label: "Daniel", type: "person", mention: "he feels like he's dating the company and not me" },
+          { label: "our relationship", type: "situation", mention: "I've turned him into a roommate who's nice to me" },
+          { label: "the startup", type: "situation", mention: "the most important year of my life" },
+          { label: "founder culture", type: "situation", mention: "you don't settle down until you've got traction" },
+          { label: "guilt", type: "feeling", mention: "Guilt, probably. Because he's right" }
+        ], links: [
+          { source: "Daniel", target: "the startup", relation: "dating the company" },
+          { source: "our relationship", target: "guilt", relation: "turned him into a roommate" },
+          { source: "founder culture", target: "our relationship", relation: "no private life until traction" }
+        ] }
+      ));
+
+      // 9 — ~34 days ago — burnout, longer
+      ENTRIES.push(entry(34, 2, 18,
+        "I think I'm burning out",
+        8,
+        `Q: How was your day?
+A: I cried in the bathroom at a coworking space today and I couldn't have told you why. Nothing went wrong. We actually had a great demo. But I locked the door and just sat on the floor for ten minutes.
+
+Q: What do you think your body was trying to say?
+A: That I can't keep running at this RPM. I'm working maybe eighty hours a week, I've stopped seeing friends, I sleep four or five hours and call it discipline. I think I've confused exhaustion with virtue. The more wrecked I am the more I feel like I'm doing it right.
+
+Q: Where did you learn that being wrecked means you're doing it right?
+A: I don't know. School maybe, then consulting, then this. I've always been the one who outworks the room. It's the only way I know how to feel safe, if I just work hard enough nothing bad can happen. But it's clearly not working because I'm sitting on a bathroom floor.
+
+Q: If working harder isn't keeping you safe, what is the fear actually about?
+A: That I'm not enough on my own. That the work is the only valuable thing about me, and if I stop producing, people will see there's nothing underneath.`,
+        "You cried on a clean day, after a good demo — because the tears weren't about the work. 'If I stop producing, there's nothing underneath' is the belief running the whole machine.",
+        [{ label: "exhaustion as virtue", recurrenceLabel: "recurring" }, { label: "overworking to feel safe" }, { label: "'nothing underneath the work'", recurrenceLabel: "new" }, { label: "isolating from friends" }],
+        ["Block one full rest day this week and treat it as non-negotiable as a meeting.", "Say the 'nothing underneath' fear to one person who knows you outside work."],
+        { nodes: [
+          { label: "burnout", type: "situation", mention: "I cried in the bathroom at a coworking space today" },
+          { label: "overworking", type: "situation", mention: "I'm working maybe eighty hours a week" },
+          { label: "the startup", type: "situation", mention: "we actually had a great demo" },
+          { label: "not enough on my own", type: "feeling", mention: "the work is the only valuable thing about me" },
+          { label: "exhaustion", type: "feeling", mention: "I sleep four or five hours and call it discipline" }
+        ], links: [
+          { source: "overworking", target: "burnout", relation: "running at too high RPM" },
+          { source: "overworking", target: "not enough on my own", relation: "outwork to feel safe" },
+          { source: "the startup", target: "exhaustion", relation: "eighty-hour weeks" }
+        ] }
+      ));
+
+      // 10 — ~28 days ago — short, a small repair with Daniel
+      ENTRIES.push(entry(28, 22, 9,
+        "He waited up",
+        2,
+        `Q: How was your day?
+A: Got home at midnight and Daniel had waited up with tea. Didn't lecture me, just said 'I'm not going anywhere, but I miss you.' I think that's the kindest and saddest sentence anyone's said to me this year.`,
+        "'I'm not going anywhere, but I miss you' — held without an ultimatum. The question is whether you'll let that patience mean something before you need it to.",
+        [{ label: "Daniel's patience", recurrenceLabel: "recurring" }, { label: "being missed" }],
+        ["Reply to the kindness — plan one thing just for the two of you this week."],
+        { nodes: [
+          { label: "Daniel", type: "person", mention: "Daniel had waited up with tea" },
+          { label: "our relationship", type: "situation", mention: "I'm not going anywhere, but I miss you" },
+          { label: "being loved", type: "feeling", mention: "the kindest and saddest sentence anyone's said to me this year" }
+        ], links: [
+          { source: "Daniel", target: "being loved", relation: "waited up without lecturing" },
+          { source: "Daniel", target: "our relationship", relation: "patient with me" }
+        ] }
+      ));
+
+      // 11 — ~24 days ago — Berlin work trip
+      ENTRIES.push(entry(24, 20, 55,
+        "Berlin, alone in a good way",
+        4,
+        `Q: How was your day?
+A: I'm in Berlin for a conference. Maya's holding the fort. I had this strange hour walking along the canal by myself and for once my brain was quiet. No deck, no metrics, just cold air and a coffee.
+
+Q: What made the quiet possible here?
+A: Distance, maybe. Nobody here needs anything from me. It made me realise I never give myself permission to just exist unless I physically leave the country. That's a bit grim when I say it out loud.`,
+        "It took a flight to Berlin to earn one quiet hour. Notice that rest currently requires a passport — that's a clue about how little permission you give yourself at home.",
+        [{ label: "rest needs distance", recurrenceLabel: "new" }, { label: "permission to just exist" }],
+        ["Find the home version of the canal walk — one ritual that needs no flight."],
+        { nodes: [
+          { label: "Berlin trip", type: "situation", mention: "I'm in Berlin for a conference" },
+          { label: "Maya", type: "person", mention: "Maya's holding the fort" },
+          { label: "stillness", type: "feeling", mention: "for once my brain was quiet" },
+          { label: "permission to rest", type: "feeling", mention: "I never give myself permission to just exist unless I physically leave the country" }
+        ], links: [
+          { source: "Berlin trip", target: "stillness", relation: "quiet hour by the canal" },
+          { source: "permission to rest", target: "Berlin trip", relation: "only rest when away" }
+        ] }
+      ));
+
+      // 12 — ~17 days ago — seed round closing
+      ENTRIES.push(entry(17, 23, 2,
+        "The round is basically there",
+        5,
+        `Q: How was your day?
+A: We're oversubscribed on the seed. A real fund is leading. Six months ago this was a Notion doc and now there's a term sheet with my name on it. I keep waiting to feel like I've made it and instead I just feel like the stakes got bigger.
+
+Q: What would 'made it' actually feel like?
+A: I honestly don't know. I think I've built a life where the finish line keeps moving on purpose, because if I ever arrived I'd have to deal with everything I've been outrunning.
+
+Q: What are you outrunning?
+A: The quiet. The questions about whether I'm happy. Whether I'm a good partner. All the stuff that's easy to ignore when your calendar is a wall of meetings.`,
+        "You named it: the moving finish line is a feature, not a bug — as long as you're sprinting you never have to sit in the quiet and ask if you're happy.",
+        [{ label: "the moving finish line", recurrenceLabel: "recurring" }, { label: "outrunning the quiet" }, { label: "avoiding the happiness question" }],
+        ["Sit in five minutes of the quiet you keep outrunning — just notice what shows up."],
+        { nodes: [
+          { label: "seed round", type: "situation", mention: "We're oversubscribed on the seed. A real fund is leading" },
+          { label: "the startup", type: "situation", mention: "six months ago this was a Notion doc" },
+          { label: "outrunning", type: "feeling", mention: "the finish line keeps moving on purpose" },
+          { label: "am I happy", type: "feeling", mention: "the questions about whether I'm happy" }
+        ], links: [
+          { source: "seed round", target: "outrunning", relation: "stakes got bigger" },
+          { source: "outrunning", target: "am I happy", relation: "avoiding the quiet" }
+        ] }
+      ));
+
+      // 13 — ~9 days ago — travel/anxiety mix, medium
+      ENTRIES.push(entry(9, 7, 40,
+        "Red-eye brain",
+        3,
+        `Q: How was your day?
+A: On a red-eye back from SF. Closed two more angels over dinner, which is great, and I've barely seen Daniel in two weeks. He texted 'safe flight, I love you' and I stared at it for a long time because I felt this little flicker of guilt that I had to remind myself to feel it back.
+
+Q: That flicker — what do you make of it?
+A: It scared me. Like the overwork has started numbing the part of me that's supposed to feel things. I don't want to wake up one day successful and hollow.`,
+        "You had to remind yourself to feel love back, and that frightened you — which is actually the good sign. The numbness isn't who you are; it's the cost of the pace.",
+        [{ label: "numbing under overwork", recurrenceLabel: "recurring" }, { label: "guilt toward Daniel" }, { label: "fear of successful but hollow" }],
+        ["When you land, no laptop first — go straight to Daniel and stay one full hour."],
+        { nodes: [
+          { label: "SF trip", type: "situation", mention: "On a red-eye back from SF" },
+          { label: "Daniel", type: "person", mention: "He texted 'safe flight, I love you'" },
+          { label: "overworking", type: "situation", mention: "I've barely seen Daniel in two weeks" },
+          { label: "numbness", type: "feeling", mention: "I had to remind myself to feel it back" }
+        ], links: [
+          { source: "overworking", target: "numbness", relation: "numbing what I feel" },
+          { source: "Daniel", target: "numbness", relation: "guilt at the flicker" },
+          { source: "SF trip", target: "overworking", relation: "closing angels over dinner" }
+        ] }
+      ));
+
+      // 14 — ~4 days ago — the proposal
+      ENTRIES.push(entry(4, 23, 38,
+        "Daniel proposed",
+        6,
+        `Q: How was your day?
+A: Daniel proposed tonight. He did it so simply, no big production, just us on the sofa, and he said he wasn't trying to compete with the company, he just wanted me to know he's choosing me even on the years I can't choose him back. I said yes. And then I went very quiet inside.
+
+Q: What happened in the quiet?
+A: I should be the happiest I've ever been and instead there's this knot. Part of me thinks getting engaged now, mid-raise, is a distraction, or worse, that it makes me look unserious. Like the second I'm a fiancée people stop seeing the founder.
+
+Q: Whose voice is saying you'll look unserious?
+A: My whole world, kind of. In my circle nobody settles down until at least Series B. You're supposed to be married to the company first. Saying yes to Daniel feels almost like breaking an unspoken rule, like I'm admitting I want a life and you're not supposed to want a life yet.`,
+        "He chose you on the years you can't choose him back — and the knot that followed isn't doubt about Daniel, it's a rule you absorbed that says wanting a life now is a betrayal of the company.",
+        [{ label: "wanting a life feels 'unserious'", recurrenceLabel: "new" }, { label: "'single until Series B'", recurrenceLabel: "recurring" }, { label: "happiness arrives as a knot" }, { label: "Daniel chooses me anyway" }],
+        ["Separate two questions on paper: do I want Daniel, and do I fear how it looks. They're not the same question.", "Tell Daniel about the knot — he already named that he isn't competing."],
+        { nodes: [
+          { label: "Daniel", type: "person", mention: "he's choosing me even on the years I can't choose him back" },
+          { label: "the proposal", type: "situation", mention: "Daniel proposed tonight" },
+          { label: "founder culture", type: "situation", mention: "in my circle nobody settles down until at least Series B" },
+          { label: "the startup", type: "situation", mention: "getting engaged now, mid-raise, is a distraction" },
+          { label: "anxiety", type: "feeling", mention: "I should be the happiest I've ever been and instead there's this knot" }
+        ], links: [
+          { source: "Daniel", target: "the proposal", relation: "proposed on the sofa" },
+          { source: "the proposal", target: "anxiety", relation: "happiness came as a knot" },
+          { source: "founder culture", target: "anxiety", relation: "single until Series B" },
+          { source: "founder culture", target: "the startup", relation: "married to the company first" }
+        ] }
+      ));
+
+      // 15 — ~1 day ago — the freshest, sets up the live demo beat
+      ENTRIES.push(entry(1, 21, 15,
+        "Telling people I'm engaged",
+        4,
+        `Q: How was your day?
+A: I told Maya I'm engaged and she was thrilled, genuinely. But I caught myself almost apologising for it, downplaying it, like 'don't worry it won't slow the raise.' Why did I feel I had to reassure my cofounder that loving someone won't make me worse at my job?
+
+Q: Good question — why do you think you did?
+A: Because somewhere I've decided that the engaged version of me and the founder version of me can't both be taken seriously. I keep waiting for permission to be happy about Daniel and the permission isn't coming because I'm the one withholding it.`,
+        "You apologised for your own joy to make it palatable to the work. Nobody is withholding permission to be happy about Daniel except the part of you that thinks a full life makes you a worse founder.",
+        [{ label: "apologising for happiness", recurrenceLabel: "new" }, { label: "'single until Series B'", recurrenceLabel: "recurring" }, { label: "withholding my own permission" }, { label: "founder self vs. fiancée self" }],
+        ["Tomorrow, tell one person the engagement news with zero disclaimers attached.", "Name the rule out loud to Daniel and decide together if you actually believe it."],
+        { nodes: [
+          { label: "Maya", type: "person", mention: "I told Maya I'm engaged and she was thrilled" },
+          { label: "Daniel", type: "person", mention: "permission to be happy about Daniel" },
+          { label: "the proposal", type: "situation", mention: "I told Maya I'm engaged" },
+          { label: "founder culture", type: "situation", mention: "the engaged version of me and the founder version of me can't both be taken seriously" },
+          { label: "anxiety", type: "feeling", mention: "almost apologising for it, downplaying it" }
+        ], links: [
+          { source: "Maya", target: "the proposal", relation: "told her I'm engaged" },
+          { source: "founder culture", target: "anxiety", relation: "can't be founder and fiancée" },
+          { source: "the proposal", target: "Daniel", relation: "happy about Daniel" }
+        ] }
+      ));
+
+      window.__ENTRIES = ENTRIES;
+
+      // --------------------------------------------------------------------
+      // Wiring: write to localStorage (newest first, matching the app) and
+      // mark onboarding complete so the demo opens straight into the app.
+      // --------------------------------------------------------------------
+      const KEY = "margo:entries";
+      const statusEl = document.getElementById("status");
+
+      function sortedNewestFirst(list) {
+        return [...list].sort((a, b) => b.createdAt - a.createdAt);
+      }
+
+      function seed() {
+        const payload = sortedNewestFirst(ENTRIES);
+        localStorage.setItem(KEY, JSON.stringify(payload));
+        localStorage.setItem("margo:onboardingComplete", "true");
+        statusEl.textContent =
+          "Seeded " + payload.length + " entries. Opening the app…";
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 600);
+      }
+
+      function clearAll() {
+        localStorage.removeItem(KEY);
+        statusEl.textContent = "Cleared all saved entries.";
+      }
+
+      document.getElementById("seed").addEventListener("click", seed);
+      document.getElementById("clear").addEventListener("click", clearAll);
+
+      statusEl.textContent =
+        "Ready: " + ENTRIES.length + " entries across ~3 months. Tap to seed.";
+    </script>
+  </body>
+</html>
