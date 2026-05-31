@@ -135,13 +135,18 @@ export const Frame = (): JSX.Element => {
   // big empty void above the orb but a cramped prompt→input gap. This keeps a
   // generous gap while there's room, and only tightens under real pressure.
   const promptToInputGap =
-    layoutPressure <= 280
-      ? 56
-      : layoutPressure <= 460
-        ? 36
-        : layoutPressure <= 620
-          ? 18
-          : 4;
+    promptLength > 90
+      ? // A long prompt already fills the vertical space on its own — pull the
+        // controls up closer so the long text doesn't float with a big void
+        // beneath it.
+        12
+      : layoutPressure <= 280
+        ? 56
+        : layoutPressure <= 460
+          ? 36
+          : layoutPressure <= 620
+            ? 18
+            : 4;
 
   // Stage 3 (last resort) — hide the orb entirely. The bottom block now caps
   // and scrolls internally, so this is purely about reclaiming the breathing
