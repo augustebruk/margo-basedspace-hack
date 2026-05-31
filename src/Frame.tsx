@@ -414,7 +414,9 @@ export const Frame = (): JSX.Element => {
     const el = typingRef.current;
     if (!el || !(personSpeaking && isTyping)) return;
     el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
+    // Cap the auto-grown height so the textarea scrolls internally instead of
+    // pushing the controls below the frame (matches the CSS max-height).
+    el.style.height = `${Math.min(el.scrollHeight, 190)}px`;
   }, [personTranscript, personSpeaking, isTyping]);
 
   // Keep the live (mic-mode) transcript pinned to its newest words as speech
@@ -492,7 +494,11 @@ export const Frame = (): JSX.Element => {
                   slide the orb up and out so the text has the full screen. */}
               <motion.div
                 animate={{
-                  y: orbLift,
+                  // The orb lift only exists to keep the orb clear of the logo.
+                  // Once the orb is hidden, the prompt is pinned to the top of
+                  // the stack instead — applying the negative lift there drags
+                  // it up into the logo, so drop the lift entirely when hidden.
+                  y: hideOrb ? 0 : orbLift,
                   paddingBottom: started ? (hideOrb ? 8 : promptToInputGap) : 0,
                 }}
                 transition={{ type: "spring", stiffness: 120, damping: 22 }}
@@ -601,7 +607,11 @@ export const Frame = (): JSX.Element => {
                   <motion.div
                     aria-hidden="true"
                     className="w-full shrink-0"
-                    animate={{ height: hideOrb ? 0 : blockGap }}
+                    // When the orb hides, the prompt jumps to the top of the
+                    // stack right under the logo — keep a small top gap so it
+                    // doesn't crowd the logo. Otherwise use the breathing gap
+                    // between the orb and the prompt.
+                    animate={{ height: hideOrb ? 24 : blockGap }}
                     transition={{ type: "spring", stiffness: 140, damping: 24 }}
                   />
 
@@ -626,8 +636,12 @@ export const Frame = (): JSX.Element => {
                 </div>
               </motion.div>
 
-              {/* Bottom block: transcript + controls (started). */}
-              <div className="flex w-full flex-col items-center">
+              {/* Bottom block: transcript + controls (started). Pinned at the
+                  bottom of the frame and never allowed to shrink, so the
+                  controls (mic / finish / next) always stay on screen — the
+                  input area above caps and scrolls internally instead of
+                  pushing the controls down out of view. */}
+              <div className="flex w-full shrink-0 flex-col items-center">
                 <AnimatePresence mode="wait">
                   {started && (
                     <motion.div
@@ -637,7 +651,7 @@ export const Frame = (): JSX.Element => {
                       transition={{ duration: 0.5, ease: "easeOut" }}
                       className="flex w-full flex-col items-center gap-7"
                     >
-                      <div className="flex min-h-[64px] w-full items-end justify-center px-2">
+                      <div className="flex max-h-[230px] min-h-[64px] w-full items-end justify-center px-2">
                         <AnimatePresence mode="wait">
                           {personSpeaking && !isTyping && (
                             <motion.div
@@ -653,7 +667,7 @@ export const Frame = (): JSX.Element => {
                               </span>
                               <p
                                 ref={transcriptScrollRef}
-                                className="w-full max-w-[300px] max-h-[240px] overflow-y-auto text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55"
+                                className="w-full max-w-[300px] max-h-[190px] overflow-y-auto text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55"
                               >
                                 {personTranscript ||
                                   (isRecording ? "Listening…" : "Tap the mic or keyboard to begin")}
@@ -684,7 +698,7 @@ export const Frame = (): JSX.Element => {
                                 onChange={(e) => setPersonTranscript(e.target.value)}
                                 placeholder="Type to add to your entry…"
                                 rows={2}
-                                className="w-full max-w-[300px] resize-none overflow-y-auto rounded-2xl border border-[rgba(244,231,255,0.9)] bg-white/70 px-4 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[22px] text-[#1c2b33] shadow-[0_6px_16px_rgba(28,43,51,0.06)] placeholder:text-[#1c2b33]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b6a0e0] min-h-[68px] max-h-[280px]"
+                                className="w-full max-w-[300px] resize-none overflow-y-auto rounded-2xl border border-[rgba(244,231,255,0.9)] bg-white/70 px-4 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[22px] text-[#1c2b33] shadow-[0_6px_16px_rgba(28,43,51,0.06)] placeholder:text-[#1c2b33]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b6a0e0] min-h-[68px] max-h-[190px]"
                               />
                             </motion.div>
                           )}
