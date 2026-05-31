@@ -42,6 +42,21 @@ export interface PracticeViewProps {
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+// A little variation so each "write more about X" box invites differently,
+// rather than every input repeating the same placeholder. Picked by the
+// followup's position so it stays stable per field.
+const FOLLOWUP_PLACEHOLDERS = [
+  "Write as much or as little as you like.",
+  "Let it be messy — no one's reading this but you.",
+  "Start anywhere. The first words don't have to be the right ones.",
+  "Whatever comes to mind, even a single line, counts.",
+  "Say the part you'd usually skip over.",
+  "There's no wrong answer here. Just be honest.",
+] as const;
+
+const followupPlaceholder = (index: number): string =>
+  FOLLOWUP_PLACEHOLDERS[index % FOLLOWUP_PLACEHOLDERS.length];
+
 // Gentle entrance stagger so the steps "flow" in, matching the Reflection feel.
 const container: Variants = {
   hidden: {},
@@ -121,9 +136,13 @@ export const PracticeView = ({
 }: PracticeViewProps): JSX.Element => {
   const [selectedFocus, setSelectedFocus] = useState<string | null>(null);
   const [reflection, setReflection] = useState("");
-  // Which "write more about X" chips have already been appended to the text,
-  // so each only adds its nudge once.
-  const [usedFollowups, setUsedFollowups] = useState<string[]>([]);
+  // Each "write more about X" chip opens its own dedicated text input. We track
+  // which followups have been opened (preserving tap order) and the text the
+  // person has written under each one, keyed by the followup prompt.
+  const [openFollowups, setOpenFollowups] = useState<string[]>([]);
+  const [followupAnswers, setFollowupAnswers] = useState<
+    Record<string, string>
+  >({});
   const [triedSkill, setTriedSkill] = useState(false);
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [customAction, setCustomAction] = useState("");
@@ -131,21 +150,30 @@ export const PracticeView = ({
 
   const finalAction = customAction.trim() || selectedAction || "";
 
-  // Tapping a "write more about X" chip appends its nudge as a gentle scaffold
-  // to the reflection so the person can keep writing under it.
+  // Tapping a "write more about X" chip opens a fresh text input dedicated to
+  // that prompt (rather than appending into the shared reflection box).
   const handleAddFollowup = (followup: string) => {
-    if (usedFollowups.includes(followup)) return;
-    setUsedFollowups((prev) => [...prev, followup]);
-    setReflection((prev) => {
-      const prefix = prev.trim() ? prev.replace(/\s*$/, "") + "\n\n" : "";
-      return `${prefix}${followup}\n`;
-    });
+    if (openFollowups.includes(followup)) return;
+    setOpenFollowups((prev) => [...prev, followup]);
+  };
+
+  // Collected reflection = the main box plus each opened followup (prompt +
+  // the person's answer), in the order the chips were tapped.
+  const composeReflection = () => {
+    const parts: string[] = [];
+    const main = reflection.trim();
+    if (main) parts.push(main);
+    for (const f of openFollowups) {
+      const answer = (followupAnswers[f] ?? "").trim();
+      if (answer) parts.push(`${f}\n${answer}`);
+    }
+    return parts.join("\n\n");
   };
 
   const handleSave = () => {
     const result: PracticeResult = {
       focus: selectedFocus,
-      reflection: reflection.trim(),
+      reflection: composeReflection(),
       triedSkill,
       action: finalAction,
     };
@@ -158,7 +186,7 @@ export const PracticeView = ({
   // Once saved, return home after a short beat so the confirmation can be read.
   useEffect(() => {
     if (!saved) return;
-    const t = setTimeout(() => onBackHome(), 3000);
+    const t = setTimeout(() => onBackHome(), 1500);
     return () => clearTimeout(t);
   }, [saved, onBackHome]);
 
@@ -239,39 +267,63 @@ export const PracticeView = ({
             placeholder="Take your time. There's no wrong answer here."
             className="w-full resize-none rounded-[16px] border border-[#e7e2ef] bg-white/80 p-3.5 [font-family:'Inter',Helvetica] text-[14px] leading-[21px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
           />
-          {practice.deepenFollowups.length > 0 && (
+          {/* Each opened followup gets its own dedicated labeled text input. */}
+          <AnimatePresence initial={false}>
+            {openFollowups.map((f) => (
+              <motion.div
+                key={f}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: EASE }}
+                className="flex flex-col gap-1.5 overflow-hidden"
+              >
+                <p className="[font-family:'Inter',Helvetica] text-[13px] font-medium leading-[18px] text-[#1c2b33]/70">
+                  {f}
+                </p>
+                <textarea
+                  value={followupAnswers[f] ?? ""}
+                  onChange={(e) =>
+                    setFollowupAnswers((prev) => ({
+                      ...prev,
+                      [f]: e.target.value,
+                    }))
+                  }
+                  rows={5}
+                  autoFocus
+                  placeholder={followupPlaceholder(
+                    practice.deepenFollowups.indexOf(f),
+                  )}
+                  className="w-full resize-none rounded-[16px] border border-[#e7e2ef] bg-white/80 p-3.5 [font-family:'Inter',Helvetica] text-[14px] leading-[21px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {practice.deepenFollowups.some((f) => !openFollowups.includes(f)) && (
             <div className="flex flex-col gap-1.5">
               <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/45">
                 Stuck? Write a little more about…
               </p>
               <div className="flex flex-wrap gap-2">
-                {practice.deepenFollowups.map((f) => {
-                  const used = usedFollowups.includes(f);
-                  return (
+                {practice.deepenFollowups
+                  .filter((f) => !openFollowups.includes(f))
+                  .map((f) => (
                     <button
                       key={f}
                       type="button"
                       onClick={() => handleAddFollowup(f)}
-                      disabled={used}
-                      className={
-                        "all-[unset] box-border flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 [font-family:'Inter',Helvetica] text-[12px] font-medium transition-colors " +
-                        (used
-                          ? "cursor-default border-[#e7e2ef] bg-[rgba(244,231,255,0.35)] text-[#1c2b33]/35"
-                          : "border-[#e7e2ef] bg-white/70 text-[#1c2b33]/70 hover:bg-white")
-                      }
+                      className="all-[unset] box-border flex cursor-pointer items-center gap-1.5 rounded-full border border-[#e7e2ef] bg-white/70 px-3 py-1.5 [font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/70 transition-colors hover:bg-white"
                     >
-                      {!used && (
-                        <span
-                          aria-hidden="true"
-                          className="text-[14px] leading-none text-[#c7a6f5]"
-                        >
-                          +
-                        </span>
-                      )}
+                      <span
+                        aria-hidden="true"
+                        className="text-[14px] leading-none text-[#c7a6f5]"
+                      >
+                        +
+                      </span>
                       {f}
                     </button>
-                  );
-                })}
+                  ))}
               </div>
             </div>
           )}
@@ -389,7 +441,7 @@ export const PracticeView = ({
               transition={{ duration: 0.3, ease: "easeOut" }}
               className="text-center [font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/60"
             >
-              Saved — your practice is set for tonight.
+              Saved — we'll remind you tonight.
             </motion.p>
           )}
         </AnimatePresence>

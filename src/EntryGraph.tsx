@@ -6,7 +6,6 @@ import {
   useState,
   type JSX,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type {
@@ -380,7 +379,7 @@ export const EntryGraph = ({
   };
 
   /* ---- Wheel / trackpad pinch zoom, anchored at the cursor ---- */
-  const onWheel = (e: ReactWheelEvent) => {
+  const onWheel = (e: WheelEvent) => {
     e.preventDefault();
     const el = containerRef.current;
     if (!el) return;
@@ -405,6 +404,19 @@ export const EntryGraph = ({
       };
     });
   };
+
+  // Attach the wheel listener as non-passive so preventDefault works (React's
+  // JSX onWheel registers a passive listener, which silently ignores
+  // preventDefault and logs a console warning).
+  const onWheelRef = useRef(onWheel);
+  onWheelRef.current = onWheel;
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => onWheelRef.current(e);
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, []);
 
   const resetView = () => {
     userAdjusted.current = false;
@@ -489,7 +501,6 @@ export const EntryGraph = ({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      onWheel={onWheel}
       role="img"
       aria-label="Interactive map of the people, situations and feelings you keep mentioning, and how they connect. Drag to move, scroll to zoom, tap a node for details."
     >

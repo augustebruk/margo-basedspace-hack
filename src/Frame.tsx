@@ -63,6 +63,15 @@ export const Frame = (): JSX.Element => {
   // prompt). Used as the follow-up step index when generating questions.
   const promptCount = useRef(0);
 
+  // The keyboard-input textarea, auto-grown to fit its content (see effect
+  // below) so it matches the roomy feel of the voice-entry window.
+  const typingRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // The live (mic-mode) transcript paragraph, capped to a scrollable height so
+  // a long, still-growing entry never pushes the controls off the frame. We
+  // keep it pinned to the bottom so the newest words stay visible.
+  const transcriptScrollRef = useRef<HTMLParagraphElement | null>(null);
+
   // Reflection screen: true while the AI "reads" the summary (drives the wave).
   const [reflectionSpeaking, setReflectionSpeaking] = useState(false);
 
@@ -77,17 +86,68 @@ export const Frame = (): JSX.Element => {
   const personSpeaking = bulbState === "personSpeaking";
 
   // When the user's in-progress input grows long, the transcript/textarea
-  // block below starts to crowd the orb. Gently lift the centered orb stack
-  // up the screen to make room — more lift as the input keeps growing.
+  // block below starts to crowd the orb. We progressively reclaim vertical
+  // space in three escalating stages — and only ever hide the orb as a last
+  // resort, because keeping it visible is the default we want.
+  //
+  //   1. Lift the centered orb stack up the screen (cheap headroom).
+  //   2. Once we run out of lift, narrow the gap between the prompt and the
+  //      input field below (so a long prompt + long entry still fit).
+  //   3. Only when even a tight layout would overflow (very long prompt AND a
+  //      long, still-growing entry) do we slide the orb fully up and out of
+  //      view, smoothly, to give the text the whole screen.
   const inputLength = personSpeaking ? personTranscript.length : 0;
+  const promptLength = currentQuestion.length;
+
+  // Stage 1 — lift the orb stack. Caps out (the orb would otherwise collide
+  // with the logo at the top of the screen, which is what the old code hit).
   const orbLift =
     inputLength <= 120
       ? 0
       : inputLength <= 240
-        ? -40
+        ? -28
         : inputLength <= 400
-          ? -80
-          : -120;
+          ? -52
+          : -72;
+
+  // Stage 2 — once the orb is near its lift ceiling, start collapsing the gap
+  // between the centered orb/prompt block and the input field below it. This
+  // pulls the prompt down toward the input instead of trying (and failing) to
+  // push the orb further up.
+  //
+  // We only tighten when space is actually scarce: a long prompt already eats
+  // vertical room, so it starts tightening at a lower entry length, while a
+  // short prompt (and any time the entry is still small) keeps the full,
+  // roomy `gap-9`. A rough "pressure" score combines both.
+  const layoutPressure = inputLength + promptLength * 2;
+  const blockGap =
+    layoutPressure <= 280
+      ? 56 // plenty of space — let the orb and prompt breathe apart
+      : layoutPressure <= 460
+        ? 36
+        : layoutPressure <= 620
+          ? 18
+          : 8;
+
+  // Breathing room reserved BELOW the prompt (between it and the input block).
+  // The centered orb/prompt stack would otherwise ride right up against the
+  // input once the keyboard textarea makes the bottom block tall, leaving a
+  // big empty void above the orb but a cramped prompt→input gap. This keeps a
+  // generous gap while there's room, and only tightens under real pressure.
+  const promptToInputGap =
+    layoutPressure <= 280
+      ? 56
+      : layoutPressure <= 460
+        ? 36
+        : layoutPressure <= 620
+          ? 18
+          : 4;
+
+  // Stage 3 (last resort) — hide the orb entirely. The bottom block now caps
+  // and scrolls internally, so this is purely about reclaiming the breathing
+  // room above once the entry is long: a long entry alone is enough (a long
+  // prompt just makes it kick in a touch sooner).
+  const hideOrb = inputLength > 420 || (promptLength > 70 && inputLength > 300);
 
 
   // ===================================================================
@@ -348,6 +408,23 @@ export const Frame = (): JSX.Element => {
     };
   }, [isRecording, startScribe, stopScribe]);
 
+  // Auto-grow the keyboard textarea to fit its content so it matches the roomy
+  // feel of the voice-entry window instead of staying a tiny fixed 2-row box.
+  useEffect(() => {
+    const el = typingRef.current;
+    if (!el || !(personSpeaking && isTyping)) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [personTranscript, personSpeaking, isTyping]);
+
+  // Keep the live (mic-mode) transcript pinned to its newest words as speech
+  // streams in, since the block now scrolls internally instead of growing.
+  useEffect(() => {
+    const el = transcriptScrollRef.current;
+    if (!el || !(personSpeaking && !isTyping)) return;
+    el.scrollTop = el.scrollHeight;
+  }, [personTranscript, personSpeaking, isTyping]);
+
   return (
     <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-white p-0 sm:bg-[#f3f3f3] sm:p-4">
       <section className="relative flex h-dvh w-full shrink-0 flex-col overflow-hidden rounded-none bg-white shadow-none sm:h-[844px] sm:max-h-[calc(100dvh-2rem)] sm:w-[390px] sm:rounded-[44px] sm:shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
@@ -409,95 +486,144 @@ export const Frame = (): JSX.Element => {
                 )}
               </AnimatePresence>
 
-              {/* Bulb + AI question stack, vertically centered. Gently lifts
-                  up the screen as the user's input grows, so a long transcript
-                  doesn't crowd the orb. */}
+              {/* Bulb + AI question stack, vertically centered. As the user's
+                  input grows we lift the whole stack, then tighten the gap
+                  between the orb and the prompt, and — only as a last resort —
+                  slide the orb up and out so the text has the full screen. */}
               <motion.div
-                animate={{ y: orbLift }}
+                animate={{
+                  y: orbLift,
+                  paddingBottom: started ? (hideOrb ? 8 : promptToInputGap) : 0,
+                }}
                 transition={{ type: "spring", stiffness: 120, damping: 22 }}
-                className="flex w-full flex-1 flex-col items-center justify-center gap-9"
+                className={`flex w-full flex-1 flex-col items-center ${
+                  // While the orb is visible we pin the stack to the bottom of
+                  // the centered area (orb above, prompt resting just over the
+                  // input). Once the orb hides there's no orb to anchor to, so
+                  // the prompt would otherwise stay pinned to the bottom with a
+                  // big empty void above where the orb used to be — instead lift
+                  // it to the top so the prompt reads near the logo and the
+                  // freed space sits below it (next to the growing input).
+                  !started
+                    ? "justify-center"
+                    : hideOrb
+                      ? "justify-start"
+                      : "justify-end"
+                }`}
               >
-                <div className="relative flex flex-col items-center justify-center gap-7">
-                  <div className="relative flex items-center justify-center">
-                    <AnimatePresence>
-                      {burstKey > 0 && (
-                        <motion.span
-                          key={burstKey}
-                          aria-hidden="true"
-                          className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
-                          initial={{ opacity: 0.6, scale: 1 }}
-                          animate={{ opacity: 0, scale: 1.7 }}
-                          transition={{ duration: 0.7, ease: "easeOut" }}
-                        />
-                      )}
-                    </AnimatePresence>
+                <div className="flex w-full flex-col items-center">
+                  {/* The orb itself collapses (height → 0) and slides up out of
+                      view when there's truly no room. Kept visible otherwise. */}
+                  <motion.div
+                    animate={{
+                      height: hideOrb ? 0 : "auto",
+                      opacity: hideOrb ? 0 : 1,
+                      y: hideOrb ? -160 : 0,
+                      scale: hideOrb ? 0.6 : 1,
+                    }}
+                    transition={{ type: "spring", stiffness: 130, damping: 24 }}
+                    // Only clip while collapsing (height → 0). When the orb is
+                    // visible, keep overflow visible so its breathing scale and
+                    // blurred glow halo aren't clipped at the top.
+                    style={{ overflow: hideOrb ? "hidden" : "visible" }}
+                    className="flex w-full flex-col items-center"
+                  >
+                    <div className="relative flex flex-col items-center justify-center gap-7">
+                      <div className="relative flex items-center justify-center">
+                        <AnimatePresence>
+                          {burstKey > 0 && (
+                            <motion.span
+                              key={burstKey}
+                              aria-hidden="true"
+                              className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
+                              initial={{ opacity: 0.6, scale: 1 }}
+                              animate={{ opacity: 0, scale: 1.7 }}
+                              transition={{ duration: 0.7, ease: "easeOut" }}
+                            />
+                          )}
+                        </AnimatePresence>
 
-                    {/* Idle: the whole orb is the tap-to-begin affordance.
-                        Once started, tapping the orb toggles the mic on/off —
-                        identical to the mic button in the controls. */}
-                    {!started ? (
-                      <button
-                        type="button"
-                        onClick={handleStartEntry}
-                        aria-label="Tap to begin"
-                        className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
-                      >
-                        <BulbAvatar state={bulbState} />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleMicToggle}
-                        aria-label={isRecording ? "Tap to pause" : "Tap to speak"}
-                        aria-pressed={isRecording}
-                        className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
-                      >
-                        <BulbAvatar state={bulbState} />
-                      </button>
-                    )}
-                  </div>
+                        {/* Idle: the whole orb is the tap-to-begin affordance.
+                            Once started, tapping the orb toggles the mic on/off —
+                            identical to the mic button in the controls. */}
+                        {!started ? (
+                          <button
+                            type="button"
+                            onClick={handleStartEntry}
+                            aria-label="Tap to begin"
+                            className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
+                          >
+                            <BulbAvatar state={bulbState} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleMicToggle}
+                            aria-label={isRecording ? "Tap to pause" : "Tap to speak"}
+                            aria-pressed={isRecording}
+                            className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
+                          >
+                            <BulbAvatar state={bulbState} />
+                          </button>
+                        )}
+                      </div>
 
-                  {/* "Tap to speak" hint under the orb. Shown on the intro
-                      screen (tap to begin) and on the opening question until
-                      the user first starts talking — then gone for the
-                      session. */}
-                  <AnimatePresence>
-                    {(!started ||
-                      (aiSpeaking &&
-                        !hasEverSpoken &&
-                        currentQuestion === OPENING_QUESTION)) && (
-                      <motion.span
-                        key="tap-to-speak"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -6 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="pointer-events-none [font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40"
+                      {/* "Tap to speak" hint under the orb. Shown on the intro
+                          screen (tap to begin) and on the opening question until
+                          the user first starts talking — then gone for the
+                          session. */}
+                      <AnimatePresence>
+                        {(!started ||
+                          (aiSpeaking &&
+                            !hasEverSpoken &&
+                            currentQuestion === OPENING_QUESTION)) && (
+                          <motion.span
+                            key="tap-to-speak"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
+                            className="pointer-events-none [font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40"
+                          >
+                            Tap to speak
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+
+                  {/* Explicit, reliably-rendered spacer between the orb and the
+                      prompt. (Animating CSS `gap` directly via motion isn't
+                      reliable — it can resolve to 0 — so we animate a real
+                      element's height instead.) Roomy when there's space,
+                      tightening only under real layout pressure; collapses when
+                      the orb hides. */}
+                  <motion.div
+                    aria-hidden="true"
+                    className="w-full shrink-0"
+                    animate={{ height: hideOrb ? 0 : blockGap }}
+                    transition={{ type: "spring", stiffness: 140, damping: 24 }}
+                  />
+
+                  <AnimatePresence mode="wait">
+                    {(aiSpeaking || personSpeaking) && currentQuestion && (
+                      <motion.p
+                        key={currentQuestion}
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                        animate={{
+                          opacity: personSpeaking ? 0.55 : 1,
+                          y: 0,
+                          scale: personSpeaking ? 0.92 : 1,
+                        }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] leading-[1.3] tracking-[-0.4px]"
                       >
-                        Tap to speak
-                      </motion.span>
+                        {currentQuestion}
+                      </motion.p>
                     )}
                   </AnimatePresence>
                 </div>
-
-                <AnimatePresence mode="wait">
-                  {(aiSpeaking || personSpeaking) && currentQuestion && (
-                    <motion.p
-                      key={currentQuestion}
-                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{
-                        opacity: personSpeaking ? 0.55 : 1,
-                        y: 0,
-                        scale: personSpeaking ? 0.92 : 1,
-                      }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                      className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] leading-[1.3] tracking-[-0.4px]"
-                    >
-                      {currentQuestion}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
               </motion.div>
 
               {/* Bottom block: transcript + controls (started). */}
@@ -525,7 +651,10 @@ export const Frame = (): JSX.Element => {
                               <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
                                 Your turn
                               </span>
-                              <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55">
+                              <p
+                                ref={transcriptScrollRef}
+                                className="w-full max-w-[300px] max-h-[240px] overflow-y-auto text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55"
+                              >
                                 {personTranscript ||
                                   (isRecording ? "Listening…" : "Tap the mic or keyboard to begin")}
                               </p>
@@ -549,12 +678,13 @@ export const Frame = (): JSX.Element => {
                                 Your turn
                               </span>
                               <textarea
+                                ref={typingRef}
                                 autoFocus
                                 value={personTranscript}
                                 onChange={(e) => setPersonTranscript(e.target.value)}
                                 placeholder="Type to add to your entry…"
                                 rows={2}
-                                className="w-full max-w-[300px] resize-none rounded-2xl border border-[rgba(244,231,255,0.9)] bg-white/70 px-4 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[22px] text-[#1c2b33] shadow-[0_6px_16px_rgba(28,43,51,0.06)] placeholder:text-[#1c2b33]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b6a0e0]"
+                                className="w-full max-w-[300px] resize-none overflow-y-auto rounded-2xl border border-[rgba(244,231,255,0.9)] bg-white/70 px-4 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[22px] text-[#1c2b33] shadow-[0_6px_16px_rgba(28,43,51,0.06)] placeholder:text-[#1c2b33]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b6a0e0] min-h-[68px] max-h-[280px]"
                               />
                             </motion.div>
                           )}
@@ -695,6 +825,7 @@ export const Frame = (): JSX.Element => {
               key="history"
               entries={entries}
               onOpenEntry={handleOpenEntry}
+              onBack={handleBackHome}
             />
           ) : phase === "insights" ? (
             <InsightsView
@@ -724,6 +855,7 @@ export const Frame = (): JSX.Element => {
               key="history-fallback"
               entries={entries}
               onOpenEntry={handleOpenEntry}
+              onBack={handleBackHome}
             />
           )}
         </AnimatePresence>

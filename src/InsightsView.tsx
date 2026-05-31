@@ -181,7 +181,7 @@ export const InsightsView = ({
       />
 
       {/* Header + range selector. */}
-      <div className="px-5 pt-12 pb-3">
+      <div className="px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3 sm:pt-12">
         <button
           type="button"
           onClick={onBack}

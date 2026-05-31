@@ -70,7 +70,10 @@ export const BulbAvatar = ({
         animate={state}
       />
 
-      {/* The bulb image itself. */}
+      {/* The bulb image itself. The image is rounded directly (not just
+          clipped by the parent) so iOS Safari doesn't leak its square corners
+          while the parent is mid scale-transform — which showed up on prod as
+          faint rectangular nubs at the top of the orb. */}
       <motion.div
         aria-hidden="true"
         className="relative overflow-hidden rounded-full bg-white"
@@ -78,7 +81,11 @@ export const BulbAvatar = ({
         variants={bulbVariants}
         animate={state}
       >
-        <img className="h-full w-full object-cover" alt="" src={image305} />
+        <img
+          className="h-full w-full rounded-full object-cover"
+          alt=""
+          src={image305}
+        />
       </motion.div>
     </div>
   );
