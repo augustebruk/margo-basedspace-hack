@@ -121,8 +121,8 @@ export const Controls = ({
         transition={{ duration: 0.18, ease: "easeOut" }}
         className={sideButtonClass}
         style={{ color: ICON_COLOR }}
-        aria-label="Finish entry"
-        title="Finish entry"
+        aria-label="Finish Entry"
+        title="Finish Entry"
       >
         <CheckIcon />
       </motion.button>
@@ -192,8 +192,8 @@ export const Controls = ({
         transition={{ duration: 0.18, ease: "easeOut" }}
         className={sideButtonClass}
         style={{ color: ICON_COLOR }}
-        aria-label="Next prompt"
-        title="Next prompt"
+        aria-label="Next Prompt"
+        title="Next Prompt"
       >
         <ForwardIcon />
       </motion.button>
@@ -206,7 +206,7 @@ export const Controls = ({
         onClick={onToggleKeyboard}
         aria-pressed={isTyping}
         className="all-[unset] box-border inline-flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 [font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/45 transition-colors hover:text-[#1c2b33]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-        title={isTyping ? "Switch back to voice" : "Type instead"}
+        title={isTyping ? "Switch Back To Voice" : "Type Instead"}
       >
         {isTyping ? (
           <span className="[&>svg]:h-5 [&>svg]:w-5">
@@ -215,7 +215,7 @@ export const Controls = ({
         ) : (
           <KeyboardIcon />
         )}
-        <span>{isTyping ? "Use voice" : "Type instead"}</span>
+        <span>{isTyping ? "Use Voice" : "Type Instead"}</span>
       </button>
     </div>
   );

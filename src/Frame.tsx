@@ -15,7 +15,8 @@ import { useEntries, countWords } from "./useEntries";
 import { HistoryView } from "./HistoryView";
 import { EntryDetailView } from "./EntryDetailView";
 import { InsightsView } from "./InsightsView";
-import { type NavTab } from "./BottomNav";
+import { BottomNav, type MenuAction } from "./BottomNav";
+import { WriteEntryView } from "./WriteEntryView";
 
 // The journaling entry always opens with this fixed prompt. The remaining
 // prompts are generated live by the AI from the conversation (see `useFollowup`).
@@ -30,7 +31,8 @@ type Phase =
   | "practice"
   | "history"
   | "historyDetail"
-  | "insights";
+  | "insights"
+  | "write";
 
 // Minimum time the white "preparing" loading screen shows, so the transition
 // into the reflection feels calm even if generation resolves quickly.
@@ -76,8 +78,10 @@ export const Frame = (): JSX.Element => {
   const [reflectionSpeaking, setReflectionSpeaking] = useState(false);
 
   // Past entries (persisted) + which one is open in the detail view.
-  const { entries, addEntry, deleteEntry } = useEntries();
+  const { entries, addEntry, updateEntry, deleteEntry } = useEntries();
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  // The id of the entry just created in this session (for saving next-step responses).
+  const currentEntryId = useRef<string | null>(null);
   // When the current session started, to compute its duration on finish.
   const entryStartedAt = useRef<number>(0);
 
@@ -191,7 +195,6 @@ export const Frame = (): JSX.Element => {
   const aiSay = useCallback((question: string) => {
     setCurrentQuestion(question);
     setPersonTranscript("");
-    setIsTyping(false);
     setBulbState("aiSpeaking");
   }, []);
 
@@ -215,7 +218,6 @@ export const Frame = (): JSX.Element => {
     // Show the thinking orb immediately, then swap in the generated question.
     setPersonTranscript("");
     setCurrentQuestion("");
-    setIsTyping(false);
     setBulbState("aiSpeaking");
 
     void generateFollowup(transcriptLog.current.join("\n\n"), step, name).then(
@@ -321,13 +323,14 @@ export const Frame = (): JSX.Element => {
     // the History tab — and so its graph seed feeds the (until-now loading) map.
     void generation.then((generated) => {
       if (transcript.trim() && generated.summary) {
-        addEntry({
+        const entry = addEntry({
           topic: generated.topic || "Journal entry",
           durationMs,
           wordCount,
           transcript,
           reflection: generated,
         });
+        currentEntryId.current = entry.id;
       }
     });
   }, [
@@ -348,6 +351,18 @@ export const Frame = (): JSX.Element => {
     setReflectionSpeaking(false);
     setPhase("practice");
   };
+
+  // Save a next-step response into the current entry.
+  const handleNextStepResponse = useCallback(
+    (stepIndex: number, text: string) => {
+      const id = currentEntryId.current;
+      if (!id) return;
+      const entry = entries.find((e) => e.id === id);
+      const prev = entry?.nextStepResponses ?? {};
+      updateEntry(id, { nextStepResponses: { ...prev, [stepIndex]: text } });
+    },
+    [entries, updateEntry],
+  );
 
   // Back to home → reset the whole flow to the idle entry screen.
   const handleBackHome = useCallback(() => {
@@ -373,27 +388,81 @@ export const Frame = (): JSX.Element => {
   }, [name, handleBackHome]);
 
   // Bottom-nav tab selection between the journaling flow and the history list.
-  const handleSelectTab = (tab: NavTab) => {
-    if (tab === "journal") {
-      setPhase("entry");
+  const navHistory = useRef<Phase[]>([]);
+
+  const navigateTo = useCallback((target: Phase) => {
+    setPhase((current) => {
+      if (current !== "onboarding" && current !== "loading") {
+        navHistory.current.push(current);
+      }
+      return target;
+    });
+  }, []);
+
+  const handleNavBack = useCallback(() => {
+    const prev = navHistory.current.pop();
+    if (prev) {
+      setPhase(prev);
     } else {
-      setSelectedEntryId(null);
-      setPhase("history");
+      setPhase("entry");
     }
-  };
+  }, []);
+
+  const handleNavHome = useCallback(() => {
+    navHistory.current = [];
+    handleBackHome();
+  }, [handleBackHome]);
+
+  const handleMenuAction = useCallback((action: MenuAction) => {
+    if (action === "history") {
+      setSelectedEntryId(null);
+      navigateTo("history");
+    } else if (action === "insights") {
+      navigateTo("insights");
+    } else if (action === "write") {
+      navigateTo("write");
+    }
+  }, [navigateTo]);
 
   const handleOpenEntry = (id: string) => {
     setSelectedEntryId(id);
-    setPhase("historyDetail");
+    navigateTo("historyDetail");
   };
+
+  // Handle written entry → reflection flow
+  const handleWriteReflect = useCallback((text: string) => {
+    const durationMs = 0;
+    const wordCount = countWords(text);
+    const transcript = `A: ${text}`;
+    transcriptLog.current = [text];
+    entryStartedAt.current = Date.now();
+
+    const generation = generateReflection(transcript);
+    if (text.trim()) void generatePractice(text, name);
+
+    void generation.then((generated) => {
+      if (text.trim() && generated.summary) {
+        const entry = addEntry({
+          topic: generated.topic || "Written entry",
+          durationMs,
+          wordCount,
+          transcript,
+          reflection: generated,
+        });
+        currentEntryId.current = entry.id;
+      }
+    });
+
+    navHistory.current.push("write");
+    setPhase("loading");
+  }, [addEntry, generatePractice, generateReflection, name]);
 
   const selectedEntry =
     entries.find((entry) => entry.id === selectedEntryId) ?? null;
 
-  // The bottom nav / Home pill is shown on the history + insights tabs — the
-  // home/entry screen uses minimal bare icons instead of the full tab bar.
-  const navTab: NavTab | null =
-    phase === "history" || phase === "insights" ? "history" : null;
+  // Show the bottom nav bar on all screens except onboarding, loading, and active voice conversation.
+  const showBottomNav = phase !== "onboarding" && phase !== "loading" && !(phase === "entry" && started);
+  const canGoBack = navHistory.current.length > 0;
 
   // Live speech-to-text via ElevenLabs Scribe. Start a streaming session when
   // recording begins and tear it down when it stops. `useScribe` feeds results
@@ -412,6 +481,17 @@ export const Frame = (): JSX.Element => {
       stopScribe();
     };
   }, [isRecording, startScribe, stopScribe]);
+
+  // When typing mode is active and the AI finishes showing a question,
+  // automatically transition to personSpeaking so the textarea appears.
+  useEffect(() => {
+    if (isTyping && aiSpeaking && currentQuestion) {
+      const t = setTimeout(() => {
+        setBulbState("personSpeaking");
+      }, 400);
+      return () => clearTimeout(t);
+    }
+  }, [isTyping, aiSpeaking, currentQuestion]);
 
   // Auto-grow the keyboard textarea to fit its content so it matches the roomy
   // feel of the voice-entry window instead of staying a tiny fixed 2-row box.
@@ -561,7 +641,7 @@ export const Frame = (): JSX.Element => {
                           <button
                             type="button"
                             onClick={handleStartEntry}
-                            aria-label="Tap to begin"
+                            aria-label="Tap To Begin"
                             className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
                           >
                             <BulbAvatar state={bulbState} />
@@ -596,7 +676,7 @@ export const Frame = (): JSX.Element => {
                             transition={{ duration: 0.4, ease: "easeOut" }}
                             className="pointer-events-none [font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40"
                           >
-                            Tap to speak
+                            Tap To Speak
                           </motion.span>
                         )}
                       </AnimatePresence>
@@ -675,7 +755,7 @@ export const Frame = (): JSX.Element => {
                                 className="w-full max-w-[300px] max-h-[190px] overflow-y-auto text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55"
                               >
                                 {personTranscript ||
-                                  (isRecording ? "Listening…" : "Tap the mic or keyboard to begin")}
+                                  (isRecording ? "Listening…" : "Tap The Mic Or Keyboard To Begin")}
                               </p>
                               {scribeError && (
                                 <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[13px] leading-[18px] text-[#d4576a]">
@@ -722,76 +802,6 @@ export const Frame = (): JSX.Element => {
                   )}
                 </AnimatePresence>
               </div>
-
-              {/* Minimal history affordance: a bare icon in the bottom-right
-                  corner (replaces the bottom tab bar on the home screen). */}
-              <AnimatePresence>
-                {!started && (
-                  <motion.button
-                    key="history-fab"
-                    type="button"
-                    onClick={() => {
-                      setSelectedEntryId(null);
-                      setPhase("history");
-                    }}
-                    aria-label="History"
-                    initial={false}
-                    exit={{ opacity: 0 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="all-[unset] absolute right-7 bottom-8 box-border flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1c2b33]/40 transition-colors hover:text-[#1c2b33]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-                  >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                      stroke="currentColor"
-                      strokeWidth={1.7}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M3 12a9 9 0 1 0 3-6.7" />
-                      <path d="M3 4v4h4" />
-                      <path d="M12 8v4l2.5 2.5" />
-                    </svg>
-                  </motion.button>
-                )}
-              </AnimatePresence>
-
-              {/* Symmetric insights affordance: a bare connected-nodes icon in
-                  the bottom-left corner, mirroring the history icon on the
-                  right (evokes patterns linking together). */}
-              <AnimatePresence>
-                {!started && (
-                  <motion.button
-                    key="insights-fab"
-                    type="button"
-                    onClick={() => setPhase("insights")}
-                    aria-label="Insights"
-                    initial={false}
-                    exit={{ opacity: 0 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="all-[unset] absolute bottom-8 left-7 box-border flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1c2b33]/40 transition-colors hover:text-[#1c2b33]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-                  >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                      stroke="currentColor"
-                      strokeWidth={1.7}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="6" y1="20" x2="6" y2="13" />
-                      <line x1="12" y1="20" x2="12" y2="4" />
-                      <line x1="18" y1="20" x2="18" y2="9" />
-                    </svg>
-                  </motion.button>
-                )}
-              </AnimatePresence>
             </motion.div>
           ) : phase === "loading" ? (
             // White "preparing" loading screen with an animated icon.
@@ -832,6 +842,9 @@ export const Frame = (): JSX.Element => {
               aiSpeaking={reflectionSpeaking}
               onSummaryComplete={() => setReflectionSpeaking(false)}
               onStartDailyPractice={handleStartDailyPractice}
+              onBackHome={handleBackHome}
+              onNextStepResponse={handleNextStepResponse}
+              nextStepResponses={entries.find((e) => e.id === currentEntryId.current)?.nextStepResponses}
             />
           ) : phase === "practice" ? (
             <PracticeView
@@ -844,24 +857,27 @@ export const Frame = (): JSX.Element => {
               key="history"
               entries={entries}
               onOpenEntry={handleOpenEntry}
-              onBack={handleBackHome}
+              onBack={handleNavBack}
             />
           ) : phase === "insights" ? (
             <InsightsView
               key="insights"
               entries={entries}
               name={name}
-              onBack={handleBackHome}
+              onBack={handleNavBack}
+            />
+          ) : phase === "write" ? (
+            <WriteEntryView
+              key="write-entry"
+              name={name}
+              onReflect={handleWriteReflect}
             />
           ) : selectedEntry ? (
             <EntryDetailView
               key="history-detail"
               entry={selectedEntry}
               allEntries={entries}
-              onBack={() => {
-                setSelectedEntryId(null);
-                setPhase("history");
-              }}
+              onBack={handleNavBack}
               onDelete={() => {
                 deleteEntry(selectedEntry.id);
                 setSelectedEntryId(null);
@@ -874,51 +890,28 @@ export const Frame = (): JSX.Element => {
               key="history-fallback"
               entries={entries}
               onOpenEntry={handleOpenEntry}
-              onBack={handleBackHome}
+              onBack={handleNavBack}
             />
           )}
         </AnimatePresence>
 
-        {/* Sticky Home pill on the history tab — gradient matches the orb. */}
+        {/* Floating pill nav bar */}
         <AnimatePresence>
-          {navTab && (
+          {showBottomNav && (
             <motion.div
               key="bottom-nav"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 16 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+              className="pointer-events-none absolute inset-0 z-20 flex items-end justify-center px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             >
-              <motion.button
-                type="button"
-                onClick={() => handleSelectTab("journal")}
-                aria-label="Home"
-                whileTap={{ scale: 0.96 }}
-                className="all-[unset] pointer-events-auto box-border flex h-12 cursor-pointer items-center gap-2 rounded-full px-6 text-white shadow-[0_14px_34px_rgba(199,166,245,0.45)] transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5]"
-                style={{
-                  background:
-                    "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
-                }}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                  stroke="currentColor"
-                  strokeWidth={1.9}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 10.5 12 3l9 7.5" />
-                  <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" />
-                </svg>
-                <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px]">
-                  Home
-                </span>
-              </motion.button>
+              <BottomNav
+                onBack={handleNavBack}
+                onHome={handleNavHome}
+                onMenuAction={handleMenuAction}
+                canGoBack={canGoBack}
+              />
             </motion.div>
           )}
         </AnimatePresence>

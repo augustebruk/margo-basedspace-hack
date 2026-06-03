@@ -27,6 +27,8 @@ export interface Entry {
   transcript: string;
   /** The reflection generated for this entry (summary / patterns / steps). */
   reflection: Reflection;
+  /** User-written responses to next-step prompts, keyed by step index. */
+  nextStepResponses?: Record<number, string>;
 }
 
 const ENTRIES_KEY = "margo:entries";
@@ -75,6 +77,8 @@ interface UseEntriesResult {
   entries: Entry[];
   /** Persist a new entry and return it (id + createdAt filled in). */
   addEntry: (entry: Omit<Entry, "id" | "createdAt">) => Entry;
+  /** Update fields on an existing entry by id. */
+  updateEntry: (id: string, patch: Partial<Omit<Entry, "id" | "createdAt">>) => void;
   /** Remove a single saved entry by id. */
   deleteEntry: (id: string) => void;
   /** Remove every saved entry. */
@@ -104,6 +108,19 @@ export function useEntries(): UseEntriesResult {
     [],
   );
 
+  const updateEntry = useCallback(
+    (id: string, patch: Partial<Omit<Entry, "id" | "createdAt">>) => {
+      setEntries((prev) => {
+        const next = prev.map((e) =>
+          e.id === id ? { ...e, ...patch } : e,
+        );
+        writeEntries(next);
+        return next;
+      });
+    },
+    [],
+  );
+
   const deleteEntry = useCallback((id: string) => {
     setEntries((prev) => {
       const next = prev.filter((entry) => entry.id !== id);
@@ -117,5 +134,5 @@ export function useEntries(): UseEntriesResult {
     writeEntries([]);
   }, []);
 
-  return { entries, addEntry, deleteEntry, clear };
+  return { entries, addEntry, updateEntry, deleteEntry, clear };
 }

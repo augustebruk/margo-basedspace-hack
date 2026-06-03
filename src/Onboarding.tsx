@@ -489,7 +489,7 @@ const EntranceStep = ({
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.45, ease: "easeInOut" }}
       className="all-[unset] relative flex h-full w-full cursor-pointer flex-col items-center justify-center gap-10 px-8"
-      aria-label="Tap to begin"
+      aria-label="Tap To Begin"
     >
       <BulbAvatar state={unlocked ? "aiSpeaking" : "idle"} />
 
@@ -597,7 +597,7 @@ const NameStep = ({
               {!typing && (
                 <span className="-mr-6">
                   <GhostIconButton
-                    label="Edit your name"
+                    label="Edit Your Name"
                     onClick={() => {
                       onOpenKeyboard();
                       setTyping(true);
@@ -627,7 +627,7 @@ const NameStep = ({
             <TapPrompt
               key="tap"
               show={canAdvance}
-              label={display ? `My name is ${display}` : "Try again"}
+              label={display ? `My Name Is ${display}` : "Try Again"}
               onTap={onConfirm}
             />
           )}
@@ -748,7 +748,7 @@ const FirstYapStep = ({
                 {!typing && (
                   <div className="absolute right-[calc(50%+70px)]">
                     <GhostIconButton
-                      label="Type your entry instead"
+                      label="Type Your Entry Instead"
                       onClick={() => {
                         onOpenKeyboard();
                         setTyping(true);
@@ -758,7 +758,7 @@ const FirstYapStep = ({
                     </GhostIconButton>
                   </div>
                 )}
-                <TapPrompt show={canAdvance} label="I'm done" onTap={onFinish} />
+                <TapPrompt show={canAdvance} label="I'm Done" onTap={onFinish} />
               </div>
             </div>
           )}

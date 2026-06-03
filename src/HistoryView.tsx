@@ -68,7 +68,6 @@ const EmptyState = (): JSX.Element => (
 export const HistoryView = ({
   entries,
   onOpenEntry,
-  onBack,
 }: HistoryViewProps): JSX.Element => (
   <motion.div
     key="history"
@@ -90,27 +89,6 @@ export const HistoryView = ({
 
     {/* Header */}
     <div className="px-5 pt-14 pb-3">
-      <button
-        type="button"
-        onClick={onBack}
-        className="all-[unset] box-border mb-3 inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-        aria-label="Back home"
-      >
-        <svg
-          aria-hidden="true"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="m15 6-6 6 6 6" />
-        </svg>
-        Home
-      </button>
       <h1 className="[font-family:'Inter',Helvetica] text-[28px] font-medium leading-[1.2] tracking-[-0.5px] text-[#1c2b33]">
         Past entries
       </h1>

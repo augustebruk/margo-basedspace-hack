@@ -138,7 +138,7 @@ export const EntryDetailView = ({
           type="button"
           onClick={onBack}
           className="all-[unset] box-border mb-3 inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-          aria-label="Back to past entries"
+          aria-label="Back To Past Entries"
         >
           <svg
             aria-hidden="true"
@@ -153,7 +153,7 @@ export const EntryDetailView = ({
           >
             <path d="m15 6-6 6 6 6" />
           </svg>
-          Past entries
+          Past Entries
         </button>
         <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.2px] text-[#1c2b33]/40">
           {formatDay(entry.createdAt)} · {formatTime(entry.createdAt)}
@@ -228,16 +228,25 @@ export const EntryDetailView = ({
         {reflection.nextSteps.length > 0 && (
           <motion.section variants={item} className="mt-8 flex flex-col gap-3">
             <SectionTitle>Next steps</SectionTitle>
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-3">
               {reflection.nextSteps.map((step, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  <span
-                    aria-hidden="true"
-                    className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
-                  />
-                  <span className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/75">
-                    {step}
-                  </span>
+                <li key={i} className="flex flex-col gap-1.5">
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      aria-hidden="true"
+                      className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
+                    />
+                    <span className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/75">
+                      {step}
+                    </span>
+                  </div>
+                  {entry.nextStepResponses?.[i]?.trim() && (
+                    <div className="ml-4 rounded-[12px] border border-[#e7e2ef] bg-white/60 p-3">
+                      <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/70">
+                        {entry.nextStepResponses[i]}
+                      </p>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -318,7 +327,7 @@ export const EntryDetailView = ({
                 <path d="M10 11v6" />
                 <path d="M14 11v6" />
               </svg>
-              Delete entry
+              Delete Entry
             </button>
           )}
         </motion.section>

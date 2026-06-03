@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -40,6 +41,12 @@ export interface ReflectionViewProps {
   onSummaryComplete?: () => void;
   /** Main CTA — wire to the real practice experience later. */
   onStartDailyPractice: () => void;
+  /** Secondary — go back to the home/entry screen. */
+  onBackHome: () => void;
+  /** Called whenever the user writes a response to a next-step prompt. */
+  onNextStepResponse?: (stepIndex: number, text: string) => void;
+  /** Previously saved responses (keyed by step index). */
+  nextStepResponses?: Record<number, string>;
 }
 
 // Premium, calm easing (no bounce).
@@ -74,6 +81,9 @@ export const ReflectionView = ({
   mapLoading = false,
   onSummaryComplete,
   onStartDailyPractice,
+  onBackHome,
+  onNextStepResponse,
+  nextStepResponses: savedResponses = {},
 }: ReflectionViewProps): JSX.Element => {
   // The map can be viewed two ways, just like a past entry's detail: just
   // THIS entry's own graph, or the cumulative all-time map. Both treat the
@@ -103,6 +113,21 @@ export const ReflectionView = ({
 
   const [visible, setVisible] = useState(0); // sentences revealed so far
   const [contentRevealed, setContentRevealed] = useState(false); // sections in
+
+  // Local state for next-step responses; seeded from saved values.
+  const [stepResponses, setStepResponses] = useState<Record<number, string>>(savedResponses);
+  const debounceTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  const handleStepInput = useCallback(
+    (index: number, text: string) => {
+      setStepResponses((prev) => ({ ...prev, [index]: text }));
+      if (debounceTimers.current[index]) clearTimeout(debounceTimers.current[index]);
+      debounceTimers.current[index] = setTimeout(() => {
+        onNextStepResponse?.(index, text);
+      }, 600);
+    },
+    [onNextStepResponse],
+  );
 
   // Keep the latest callback in a ref so the reveal effects don't re-run (and
   // cancel their timers) just because the parent passes a new function.
@@ -266,7 +291,7 @@ export const ReflectionView = ({
               <EntryGraph
                 graph={aggregated}
                 range="all"
-                height={220}
+                height={340}
                 loading={mapLoading}
               />
             </div>
@@ -275,16 +300,32 @@ export const ReflectionView = ({
           {/* Next steps */}
           <motion.section variants={item} className="flex flex-col gap-3">
             <SectionTitle>Next steps</SectionTitle>
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-3">
               {nextSteps.map((step, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  <span
-                    aria-hidden="true"
-                    className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
-                  />
-                  <span className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/75">
-                    {step}
-                  </span>
+                <li key={i} className="flex flex-col gap-2">
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      aria-hidden="true"
+                      className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
+                    />
+                    <span className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/75">
+                      {step}
+                    </span>
+                  </div>
+                  <div className="pl-4">
+                    <textarea
+                      value={stepResponses[i] ?? ""}
+                      onChange={(e) => handleStepInput(i, e.target.value)}
+                      rows={2}
+                      placeholder="Write your thoughts here…"
+                      className="w-full resize-none rounded-[14px] border border-[#e7e2ef] bg-white/70 p-3 [font-family:'Inter',Helvetica] text-[13px] leading-[19px] text-[#1c2b33] placeholder:text-[#1c2b33]/30 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+                    />
+                    {stepResponses[i]?.trim() && (
+                      <p className="mt-1 [font-family:'Inter',Helvetica] text-[11px] font-medium text-[#c7a6f5]">
+                        Saved
+                      </p>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -293,7 +334,7 @@ export const ReflectionView = ({
       </div>
 
       {/* ---- Primary CTA — appears after the content has loaded ---- */}
-      <div className="flex justify-center px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className="flex flex-col items-center gap-2.5 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <AnimatePresence>
           {(contentRevealed || (!mapLoading && !hasSummary)) && (
             <motion.button
@@ -308,10 +349,10 @@ export const ReflectionView = ({
                 background:
                   "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
               }}
-              aria-label="Start daily practice"
+              aria-label="Start Daily Practice"
             >
               <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px] text-white">
-                Start daily practice
+                Start Daily Practice
               </span>
               <svg
                 aria-hidden="true"
@@ -327,6 +368,35 @@ export const ReflectionView = ({
               >
                 <path d="m9 6 6 6-6 6" />
               </svg>
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {(contentRevealed || (!mapLoading && !hasSummary)) && (
+            <motion.button
+              type="button"
+              onClick={onBackHome}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: EASE, delay: 0.5 }}
+              className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+              aria-label="Return Home"
+            >
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m15 6-6 6 6 6" />
+              </svg>
+              Return Home
             </motion.button>
           )}
         </AnimatePresence>
