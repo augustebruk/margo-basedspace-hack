@@ -1,0 +1,125 @@
+.root {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  background: linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%);
+}
+
+.header {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-top: 3rem;
+  padding-bottom: 0.5rem;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+.title {
+  margin-top: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+}
+
+.writeArea {
+  min-height: 0;
+  flex: 1 1 0%;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: 1rem;
+}
+
+.textarea {
+  height: 100%;
+  width: 100%;
+  resize: none;
+  border-radius: 20px;
+  border: 1px solid #e7e2ef;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1rem;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--ink);
+}
+
+.textarea::placeholder {
+  color: rgba(28, 43, 51, 0.3);
+}
+
+.textarea:focus {
+  border-color: #c7a6f5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(199, 166, 245, 0.2);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-top: 0.5rem;
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.wordCount {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.35);
+}
+
+.reflectBtn {
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 2.75rem;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  color: #fff;
+  background: var(--grad-cta);
+  box-shadow: 0 14px 34px rgba(199, 166, 245, 0.45);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.reflectBtn:hover {
+  transform: scale(1.03);
+}
+
+.reflectBtnDisabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.reflectBtnDisabled:hover {
+  transform: none;
+}
+
+.reflectBtnLabel {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}

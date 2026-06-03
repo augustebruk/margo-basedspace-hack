@@ -1,5 +1,7 @@
 import { useState, type JSX } from "react";
 import { motion } from "motion/react";
+import { cx } from "./cx";
+import styles from "./WriteEntryView.module.css";
 
 /* ============================================================================
  * WriteEntryView — full-page free-writing journaling experience.
@@ -28,42 +30,33 @@ export const WriteEntryView = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative flex h-full w-full flex-col"
+      className={styles.root}
     >
       {/* Background */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
-      />
+      <div aria-hidden="true" className={styles.bg} />
 
       {/* Header */}
-      <div className="px-5 pt-12 pb-2">
-        <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.4px] text-[#1c2b33]/40">
-          Free Write
-        </p>
-        <h1 className="mt-1 [font-family:'Inter',Helvetica] text-[24px] font-medium leading-[1.25] tracking-[-0.4px] text-[#1c2b33]">
+      <div className={styles.header}>
+        <p className={styles.eyebrow}>Free Write</p>
+        <h1 className={styles.title}>
           {name ? `What's on your mind, ${name}?` : "What's on your mind?"}
         </h1>
       </div>
 
       {/* Writing area */}
-      <div className="min-h-0 flex-1 px-5 pb-4">
+      <div className={styles.writeArea}>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           autoFocus
           placeholder="Start writing… Let your thoughts flow freely. There's no right or wrong way to do this."
-          className="h-full w-full resize-none rounded-[20px] border border-[#e7e2ef] bg-white/80 p-4 [font-family:'Inter',Helvetica] text-[15px] leading-[24px] text-[#1c2b33] placeholder:text-[#1c2b33]/30 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+          className={styles.textarea}
         />
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
-        <span className="[font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/35">
+      <div className={styles.footer}>
+        <span className={styles.wordCount}>
           {wordCount} {wordCount === 1 ? "word" : "words"}
         </span>
 
@@ -71,16 +64,11 @@ export const WriteEntryView = ({
           type="button"
           onClick={() => onReflect(text)}
           disabled={!canReflect}
-          className={
-            "all-[unset] box-border inline-flex h-11 cursor-pointer items-center gap-2 rounded-full px-5 text-white shadow-[0_14px_34px_rgba(199,166,245,0.45)] transition-all " +
-            (canReflect
-              ? "hover:scale-[1.03]"
-              : "cursor-default opacity-40")
-          }
-          style={{
-            background:
-              "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
-          }}
+          className={cx(
+            "btnReset",
+            styles.reflectBtn,
+            !canReflect && styles.reflectBtnDisabled,
+          )}
           aria-label="Reflect"
         >
           <svg
@@ -96,9 +84,7 @@ export const WriteEntryView = ({
           >
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
           </svg>
-          <span className="[font-family:'Inter',Helvetica] text-[14px] font-semibold tracking-[-0.2px]">
-            Reflect
-          </span>
+          <span className={styles.reflectBtnLabel}>Reflect</span>
         </button>
       </div>
     </motion.div>

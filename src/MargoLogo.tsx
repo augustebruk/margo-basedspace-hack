@@ -1,4 +1,6 @@
 import type { JSX } from "react";
+import { cx } from "./cx";
+import styles from "./MargoLogo.module.css";
 
 /**
  * margo logo — the exact brand mark (icon + wordmark) provided as SVG.
@@ -40,7 +42,7 @@ export const MargoLogo = ({
       type="button"
       onClick={onClick}
       aria-label="Go to home"
-      className={`${className ?? ""} cursor-pointer rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]`}
+      className={cx(className, "btnReset", "focusRing", styles.button)}
     >
       {svg}
     </button>

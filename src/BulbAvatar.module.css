@@ -1,0 +1,28 @@
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  filter: blur(40px);
+  background: var(--grad-orb);
+}
+
+.bulb {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #ffffff;
+}
+
+.image {
+  height: 100%;
+  width: 100%;
+  border-radius: 9999px;
+  object-fit: cover;
+}

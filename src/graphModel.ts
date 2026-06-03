@@ -191,18 +191,21 @@ export function buildAggregatedGraph(
     const today = isToday(entry.createdAt, now);
     const within = entry.createdAt >= highlightFrom;
 
-    for (const seed of entry.graph.nodes) {
-      const id = seed.label.trim().toLowerCase();
+    for (const seed of entry.graph.nodes ?? []) {
+      // Persisted/legacy or malformed model output may carry a node with no
+      // label; skip it rather than crashing on .trim() of undefined.
+      const label = typeof seed?.label === "string" ? seed.label : "";
+      const id = label.trim().toLowerCase();
       if (!id) continue;
       // Skip bare time references so a stray "today" node (from older persisted
       // entries) never shows up on the map.
-      if (isTimeWordLabel(seed.label)) continue;
+      if (isTimeWordLabel(label)) continue;
 
       let node = nodeMap.get(id);
       if (!node) {
         node = {
           id,
-          label: seed.label.trim(),
+          label: label.trim(),
           type: seed.type,
           count: 0,
           entryCount: 0,
@@ -224,14 +227,19 @@ export function buildAggregatedGraph(
         nodeEntrySets.get(id)!.add(entry.createdAt);
         node.inRange = true;
       }
-      node.label = seed.label.trim(); // keep latest casing
+      node.label = label.trim(); // keep latest casing
       node.lastSeen = Math.max(node.lastSeen, entry.createdAt);
       if (today) node.touchedToday = true;
     }
 
-    for (const link of entry.graph.links) {
-      const s = link.source.trim().toLowerCase();
-      const t = link.target.trim().toLowerCase();
+    for (const link of entry.graph.links ?? []) {
+      // Guard against malformed/legacy links missing source/target (the model
+      // or older persisted entries can emit these) — skip rather than crash.
+      const sRaw = typeof link?.source === "string" ? link.source : "";
+      const tRaw = typeof link?.target === "string" ? link.target : "";
+      const s = sRaw.trim().toLowerCase();
+      const t = tRaw.trim().toLowerCase();
+      if (!s || !t) continue;
       if (!nodeMap.has(s) || !nodeMap.has(t)) continue;
       const key = linkKey(s, t);
       let agg = linkMap.get(key);

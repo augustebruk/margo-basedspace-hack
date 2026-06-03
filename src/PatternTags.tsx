@@ -2,6 +2,8 @@ import type { JSX } from "react";
 import type { ReflectionPattern } from "./ReflectionView";
 import type { AggregatedGraph, GraphRange } from "./graphModel";
 import { frequencyLabel, shareLabel } from "./graphModel";
+import { cx } from "./cx";
+import styles from "./PatternTags.module.css";
 
 /* PatternTags — bigger, more insightful pattern chips. Instead of a bare label
  * + a vague "recurring" hint, each chip surfaces real frequency: how many times
@@ -36,7 +38,7 @@ export const PatternTags = ({
   graph,
   range,
 }: PatternTagsProps): JSX.Element => (
-  <div className="flex flex-wrap gap-2">
+  <div className={styles.root}>
     {patterns.map((p) => {
       const node = matchNode(p.label, graph);
       const freq = node ? frequencyLabel(node.count, range) : "";
@@ -50,24 +52,11 @@ export const PatternTags = ({
       return (
         <span
           key={p.label}
-          className="inline-flex flex-col gap-0.5 rounded-[16px] px-4 py-2.5"
-          style={{
-            background: hot
-              ? "rgba(237,233,254,0.85)"
-              : "rgba(244,231,255,0.5)",
-            border: hot
-              ? "1px solid rgba(139,92,246,0.35)"
-              : "1px solid transparent",
-          }}
+          className={cx(styles.chip, hot && styles.chipHot)}
         >
-          <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px] text-[#1c2b33]">
-            {p.label}
-          </span>
+          <span className={styles.label}>{p.label}</span>
           {detail && (
-            <span
-              className="[font-family:'Inter',Helvetica] text-[12px] font-medium"
-              style={{ color: hot ? "#7c3aed" : "rgba(28,43,51,0.45)" }}
-            >
+            <span className={cx(styles.detail, hot && styles.detailHot)}>
               {detail}
             </span>
           )}

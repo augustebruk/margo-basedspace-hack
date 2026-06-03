@@ -6,6 +6,8 @@ import { PatternTags } from "./PatternTags";
 import { buildAggregatedGraph } from "./graphModel";
 import type { Entry } from "./useEntries";
 import { formatDay, formatDuration, formatTime } from "./entryFormat";
+import { cx } from "./cx";
+import styles from "./EntryDetailView.module.css";
 
 /* ============================================================================
  * EntryDetailView — a single past entry. Top: session stats (duration in
@@ -60,7 +62,7 @@ function parseTranscript(transcript: string): Turn[] {
 }
 
 const SectionTitle = ({ children }: { children: string }): JSX.Element => (
-  <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.4px] text-[#1c2b33]/40">
+  <p className={styles.sectionTitle}>
     {children}
   </p>
 );
@@ -72,11 +74,11 @@ const Stat = ({
   value: string;
   label: string;
 }): JSX.Element => (
-  <div className="flex flex-1 flex-col items-center gap-0.5 rounded-[16px] bg-white/70 px-3 py-3">
-    <span className="[font-family:'Inter',Helvetica] text-[22px] font-semibold tracking-[-0.4px] text-[#1c2b33]">
+  <div className={styles.stat}>
+    <span className={styles.statValue}>
       {value}
     </span>
-    <span className="[font-family:'Inter',Helvetica] text-[12px] font-normal uppercase tracking-[0.8px] text-[#1c2b33]/45">
+    <span className={styles.statLabel}>
       {label}
     </span>
   </div>
@@ -120,24 +122,20 @@ export const EntryDetailView = ({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 24 }}
       transition={{ duration: 0.35, ease: EASE }}
-      className="relative flex h-full w-full flex-col"
+      className={styles.root}
     >
       {/* Same washed-out pastel orb background as the reflection screen. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
+        className={styles.bg}
       />
 
       {/* Header with a back affordance + date/time. */}
-      <div className="px-5 pt-12 pb-3">
+      <div className={styles.header}>
         <button
           type="button"
           onClick={onBack}
-          className="all-[unset] box-border mb-3 inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+          className={cx("btnReset", "focusRing", styles.backButton)}
           aria-label="Back To Past Entries"
         >
           <svg
@@ -155,10 +153,10 @@ export const EntryDetailView = ({
           </svg>
           Past Entries
         </button>
-        <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.2px] text-[#1c2b33]/40">
+        <p className={styles.dateLine}>
           {formatDay(entry.createdAt)} · {formatTime(entry.createdAt)}
         </p>
-        <h1 className="mt-1 [font-family:'Inter',Helvetica] text-[26px] font-medium leading-[1.2] tracking-[-0.5px] text-[#1c2b33]">
+        <h1 className={styles.topic}>
           {entry.topic}
         </h1>
       </div>
@@ -168,26 +166,26 @@ export const EntryDetailView = ({
         variants={container}
         initial="hidden"
         animate="show"
-        className="min-h-0 flex-1 overflow-y-auto px-5 pb-24"
+        className={styles.body}
       >
         {/* Session stats — duration + words spoken. */}
-        <motion.div variants={item} className="flex gap-2.5">
+        <motion.div variants={item} className={styles.stats}>
           <Stat value={formatDuration(entry.durationMs)} label="Length" />
           <Stat value={entry.wordCount.toLocaleString()} label="Words" />
         </motion.div>
 
         {/* Reflection — the spoken reframe. */}
         {reflection.summary && (
-          <motion.section variants={item} className="mt-8 flex flex-col gap-3">
+          <motion.section variants={item} className={styles.section}>
             <SectionTitle>Reflection</SectionTitle>
-            <p className="[font-family:'Inter',Helvetica] text-[18px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
+            <p className={styles.reflectionText}>
               {reflection.summary}
             </p>
           </motion.section>
         )}
 
         {/* Patterns + the living atom graph — same as the live reflection. */}
-        <motion.section variants={item} className="mt-8 flex flex-col gap-3">
+        <motion.section variants={item} className={styles.section}>
           <SectionTitle>Patterns</SectionTitle>
           {reflection.patterns.length > 0 && (
             <PatternTags
@@ -197,7 +195,7 @@ export const EntryDetailView = ({
             />
           )}
 
-          <div className="mt-3 flex items-center justify-between gap-3">
+          <div className={styles.mapHeader}>
             <SectionTitle>Your map</SectionTitle>
             <RangeToggle
               value={mapScope}
@@ -209,8 +207,8 @@ export const EntryDetailView = ({
             />
           </div>
           {aggregated.grewTodayCount > 0 && (
-            <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
-              <span className="font-semibold text-[#7c3aed]">
+            <p className={styles.grewNote}>
+              <span className={styles.grewCount}>
                 {aggregated.grewTodayCount} new{" "}
                 {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
               </span>{" "}
@@ -219,30 +217,30 @@ export const EntryDetailView = ({
             </p>
           )}
           {/* Full-bleed, on the background — no card. */}
-          <div className="-mx-5 mt-1">
+          <div className={styles.graphWrap}>
             <EntryGraph graph={aggregated} range="all" height={220} />
           </div>
         </motion.section>
 
         {/* Next steps. */}
         {reflection.nextSteps.length > 0 && (
-          <motion.section variants={item} className="mt-8 flex flex-col gap-3">
+          <motion.section variants={item} className={styles.section}>
             <SectionTitle>Next steps</SectionTitle>
-            <ul className="flex flex-col gap-3">
+            <ul className={styles.stepsList}>
               {reflection.nextSteps.map((step, i) => (
-                <li key={i} className="flex flex-col gap-1.5">
-                  <div className="flex items-start gap-2.5">
+                <li key={i} className={styles.stepItem}>
+                  <div className={styles.stepRow}>
                     <span
                       aria-hidden="true"
-                      className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
+                      className={styles.stepDot}
                     />
-                    <span className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/75">
+                    <span className={styles.stepText}>
                       {step}
                     </span>
                   </div>
                   {entry.nextStepResponses?.[i]?.trim() && (
-                    <div className="ml-4 rounded-[12px] border border-[#e7e2ef] bg-white/60 p-3">
-                      <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/70">
+                    <div className={styles.stepResponse}>
+                      <p className={styles.stepResponseText}>
                         {entry.nextStepResponses[i]}
                       </p>
                     </div>
@@ -254,19 +252,19 @@ export const EntryDetailView = ({
         )}
 
         {/* Transcribed conversation. */}
-        <motion.section variants={item} className="mt-8 flex flex-col gap-3">
+        <motion.section variants={item} className={styles.section}>
           <SectionTitle>Transcript</SectionTitle>
           {turns.length > 0 ? (
-            <div className="flex flex-col gap-4">
+            <div className={styles.turns}>
               {turns.map((turn, i) => (
-                <div key={i} className="flex flex-col gap-1.5">
+                <div key={i} className={styles.turn}>
                   {turn.question && (
-                    <p className="[font-family:'Inter',Helvetica] text-[14px] font-medium leading-[20px] text-[#a07ee0]">
+                    <p className={styles.turnQuestion}>
                       {turn.question}
                     </p>
                   )}
                   {turn.answer && (
-                    <p className="rounded-[16px] bg-white/70 px-4 py-3 [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[23px] text-[#1c2b33]">
+                    <p className={styles.turnAnswer}>
                       {turn.answer}
                     </p>
                   )}
@@ -274,31 +272,31 @@ export const EntryDetailView = ({
               ))}
             </div>
           ) : (
-            <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/50">
+            <p className={styles.transcriptEmpty}>
               No transcript was captured for this session.
             </p>
           )}
         </motion.section>
 
         {/* Delete this entry. Two-tap confirm so it isn't triggered by accident. */}
-        <motion.section variants={item} className="mt-10 flex flex-col gap-2.5">
+        <motion.section variants={item} className={styles.deleteSection}>
           {confirmingDelete ? (
-            <div className="flex flex-col gap-2.5">
-              <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/60">
+            <div className={styles.confirmWrap}>
+              <p className={styles.confirmText}>
                 Delete this entry? This can't be undone.
               </p>
-              <div className="flex gap-2.5">
+              <div className={styles.confirmRow}>
                 <button
                   type="button"
                   onClick={onDelete}
-                  className="all-[unset] box-border flex-1 cursor-pointer rounded-[14px] bg-[#e5484d] py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-medium text-white hover:bg-[#d33a3f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5484d]"
+                  className={cx("btnReset", "focusRing", styles.confirmDelete)}
                 >
                   Delete
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingDelete(false)}
-                  className="all-[unset] box-border flex-1 cursor-pointer rounded-[14px] bg-white/70 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-medium text-[#1c2b33]/75 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+                  className={cx("btnReset", "focusRing", styles.confirmCancel)}
                 >
                   Cancel
                 </button>
@@ -308,7 +306,7 @@ export const EntryDetailView = ({
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="all-[unset] box-border inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[14px] py-3 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#e5484d]/80 hover:text-[#e5484d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5484d]"
+              className={cx("btnReset", "focusRing", styles.deleteTrigger)}
               aria-label="Delete this entry"
             >
               <svg

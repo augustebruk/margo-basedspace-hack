@@ -1,0 +1,467 @@
+.root {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  background: var(--grad-screen);
+}
+
+/* ---- Header ---- */
+.header {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-top: 3rem;
+  padding-bottom: 0.75rem;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+.title {
+  margin-top: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+}
+
+.intro {
+  margin-top: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.65);
+}
+
+.approachPill {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.375rem 0.75rem;
+  box-shadow: 0 4px 14px rgba(28, 43, 51, 0.05);
+}
+
+.approachDot {
+  height: 0.375rem;
+  width: 0.375rem;
+  border-radius: 9999px;
+  background: var(--grad-step);
+}
+
+.approachLabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.7);
+}
+
+/* ---- Scrollable steps ---- */
+.steps {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.sectionSpaced {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+/* ---- StepLabel ---- */
+.stepLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stepBadge {
+  display: flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--grad-step);
+}
+
+.stepLabelText {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--ink);
+}
+
+/* ---- Choice tiles ---- */
+.choiceList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.choiceTile {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 16px;
+  border-width: 1px;
+  border-style: solid;
+  padding: 0.75rem 1rem;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.choiceTileInactive {
+  border-color: #e7e2ef;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.choiceTileInactive:hover {
+  background: #fff;
+}
+
+.choiceTileActive {
+  border-color: #c7a6f5;
+  background: rgba(244, 231, 255, 0.6);
+}
+
+.choiceRadio {
+  display: flex;
+  height: 18px;
+  width: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border-width: 1px;
+  border-style: solid;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.choiceRadioInactive {
+  border-color: rgba(28, 43, 51, 0.2);
+}
+
+.choiceRadioActive {
+  border-color: transparent;
+  background: var(--grad-step);
+}
+
+.choiceRadioDot {
+  height: 0.375rem;
+  width: 0.375rem;
+  border-radius: 9999px;
+  background: #fff;
+}
+
+.choiceLabel {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgba(28, 43, 51, 0.85);
+}
+
+/* ---- Step 2 ---- */
+.deepenPrompt {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19px;
+  color: rgba(28, 43, 51, 0.6);
+}
+
+.textarea {
+  width: 100%;
+  resize: none;
+  border-radius: 16px;
+  border: 1px solid #e7e2ef;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.875rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--ink);
+}
+
+.textarea::placeholder {
+  color: rgba(28, 43, 51, 0.35);
+}
+
+.textarea:focus {
+  border-color: #c7a6f5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(199, 166, 245, 0.2);
+}
+
+.followup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow: hidden;
+}
+
+.followupLabel {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: rgba(28, 43, 51, 0.7);
+}
+
+.followupSuggest {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.followupSuggestLabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid #e7e2ef;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.375rem 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.7);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.chip:hover {
+  background: #fff;
+}
+
+.chipPlus {
+  font-size: 14px;
+  line-height: 1;
+  color: #c7a6f5;
+}
+
+/* ---- Step 3 ---- */
+.skillCard {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 18px;
+  border-width: 1px;
+  border-style: solid;
+  padding: 1rem;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.skillCardInactive {
+  border-color: #e7e2ef;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.skillCardInactive:hover {
+  background: #fff;
+}
+
+.skillCardActive {
+  border-color: #c7a6f5;
+  background: rgba(244, 231, 255, 0.55);
+}
+
+.skillHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.skillName {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--ink);
+}
+
+.skillCheck {
+  display: flex;
+  height: 22px;
+  width: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border-width: 1px;
+  border-style: solid;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.skillCheckInactive {
+  border-color: rgba(28, 43, 51, 0.2);
+}
+
+.skillCheckActive {
+  border-color: transparent;
+  background: var(--grad-step);
+}
+
+.skillInstruction {
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgba(28, 43, 51, 0.65);
+}
+
+.skillHint {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+/* ---- Step 4 ---- */
+.actionInput {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid #e7e2ef;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.75rem 0.875rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ink);
+}
+
+.actionInput::placeholder {
+  color: rgba(28, 43, 51, 0.35);
+}
+
+.actionInput:focus {
+  border-color: #c7a6f5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(199, 166, 245, 0.2);
+}
+
+/* ---- Closing line ---- */
+.closingLine {
+  margin-top: 1.75rem;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+/* ---- Footer ---- */
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.625rem;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-top: 0.75rem;
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.savedNote {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.6);
+}
+
+.saveBtn {
+  display: inline-flex;
+  height: 3rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  color: #fff;
+  background: var(--grad-cta);
+  box-shadow: 0 14px 34px rgba(199, 166, 245, 0.45);
+  transition: transform 0.15s ease;
+}
+
+.saveBtn:hover {
+  transform: scale(1.03);
+}
+
+.saveBtn:focus-visible {
+  outline: 2px solid #c7a6f5;
+  outline-offset: 2px;
+}
+
+.saveBtnLabel {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+.backBtn:hover {
+  color: rgba(28, 43, 51, 0.85);
+}

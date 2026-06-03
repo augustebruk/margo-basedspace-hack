@@ -2,6 +2,8 @@ import type { JSX } from "react";
 import { motion, type Variants } from "motion/react";
 import type { Entry } from "./useEntries";
 import { formatDay, formatTime } from "./entryFormat";
+import { cx } from "./cx";
+import styles from "./HistoryView.module.css";
 
 /* ============================================================================
  * HistoryView — the "Past Entries" tab. A scrollable list of full-width cards,
@@ -30,15 +32,11 @@ const EmptyState = (): JSX.Element => (
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5, ease: EASE }}
-    className="flex flex-1 flex-col items-center justify-center px-8 text-center"
+    className={styles.empty}
   >
     <span
       aria-hidden="true"
-      className="mb-5 flex h-16 w-16 items-center justify-center rounded-full"
-      style={{
-        background:
-          "linear-gradient(135deg, rgba(244,231,255,1) 0%, rgba(253,221,222,1) 100%)",
-      }}
+      className={styles.emptyIcon}
     >
       <svg
         width="28"
@@ -55,10 +53,10 @@ const EmptyState = (): JSX.Element => (
         <path d="M12 8v4l2.5 2.5" />
       </svg>
     </span>
-    <p className="[font-family:'Inter',Helvetica] text-[19px] font-medium tracking-[-0.3px] text-[#1c2b33]">
+    <p className={styles.emptyTitle}>
       No entries yet
     </p>
-    <p className="mt-1.5 max-w-[260px] [font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/55">
+    <p className={styles.emptyText}>
       Finish your first journaling session and it'll show up here — date, topic,
       and the full reflection.
     </p>
@@ -75,24 +73,20 @@ export const HistoryView = ({
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
     transition={{ duration: 0.4, ease: "easeOut" }}
-    className="relative flex h-full w-full flex-col"
+    className={styles.root}
   >
     {/* Same washed-out pastel orb background as the other screens. */}
     <div
       aria-hidden="true"
-      className="absolute inset-0 -z-10"
-      style={{
-        background:
-          "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-      }}
+      className={styles.bg}
     />
 
     {/* Header */}
-    <div className="px-5 pt-14 pb-3">
-      <h1 className="[font-family:'Inter',Helvetica] text-[28px] font-medium leading-[1.2] tracking-[-0.5px] text-[#1c2b33]">
+    <div className={styles.header}>
+      <h1 className={styles.title}>
         Past entries
       </h1>
-      <p className="mt-1 [font-family:'Inter',Helvetica] text-[14px] font-normal leading-[20px] text-[#1c2b33]/55">
+      <p className={styles.subtitle}>
         {entries.length > 0
           ? `${entries.length} ${entries.length === 1 ? "session" : "sessions"}`
           : "Your journaling history"}
@@ -106,24 +100,24 @@ export const HistoryView = ({
         variants={container}
         initial="hidden"
         animate="show"
-        className="min-h-0 flex-1 overflow-y-auto px-5 pb-24"
+        className={styles.list}
       >
         {entries.map((entry) => (
-          <motion.li key={entry.id} variants={item} className="mb-3">
+          <motion.li key={entry.id} variants={item} className={styles.listItem}>
             <button
               type="button"
               onClick={() => onOpenEntry(entry.id)}
-              className="all-[unset] box-border flex w-full cursor-pointer flex-col gap-2 rounded-[20px] border border-white/70 bg-white/75 p-4 text-left shadow-[0_8px_28px_rgba(28,43,51,0.05)] transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+              className={cx("btnReset", "focusRing", styles.card)}
             >
-              <div className="flex items-center gap-1.5 [font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.2px] text-[#1c2b33]/40">
+              <div className={styles.cardMeta}>
                 <span>{formatDay(entry.createdAt)}</span>
                 <span aria-hidden="true">·</span>
-                <span className="normal-case tracking-[0.2px]">
+                <span className={styles.cardTime}>
                   {formatTime(entry.createdAt)}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <p className="[font-family:'Inter',Helvetica] text-[17px] font-medium leading-[1.3] tracking-[-0.2px] text-[#1c2b33]">
+              <div className={styles.cardRow}>
+                <p className={styles.cardTopic}>
                   {entry.topic}
                 </p>
                 <svg
@@ -137,7 +131,7 @@ export const HistoryView = ({
                   strokeWidth={2}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="shrink-0"
+                  className={styles.cardChevron}
                 >
                   <path d="m9 6 6 6-6 6" />
                 </svg>

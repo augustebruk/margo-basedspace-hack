@@ -13,6 +13,8 @@ import {
   rangeLabel,
   type TopEntity,
 } from "./insightsModel";
+import { cx } from "./cx";
+import styles from "./InsightsView.module.css";
 
 /* ============================================================================
  * InsightsView — the cross-entry "trends" screen, symmetric to the History
@@ -39,7 +41,7 @@ const item: Variants = {
 };
 
 const SectionTitle = ({ children }: { children: string }): JSX.Element => (
-  <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.4px] text-[#1c2b33]/40">
+  <p className={styles.sectionTitle}>
     {children}
   </p>
 );
@@ -51,11 +53,11 @@ const Stat = ({
   value: string;
   label: string;
 }): JSX.Element => (
-  <div className="flex flex-1 flex-col items-center gap-0.5 rounded-[16px] bg-white/70 px-3 py-3">
-    <span className="[font-family:'Inter',Helvetica] text-[22px] font-semibold tracking-[-0.4px] text-[#1c2b33]">
+  <div className={styles.stat}>
+    <span className={styles.statValue}>
       {value}
     </span>
-    <span className="[font-family:'Inter',Helvetica] text-[12px] font-normal uppercase tracking-[0.8px] text-[#1c2b33]/45">
+    <span className={styles.statLabel}>
       {label}
     </span>
   </div>
@@ -71,19 +73,19 @@ const EntityRow = ({
 }): JSX.Element | null => {
   if (entities.length === 0) return null;
   return (
-    <div className="flex flex-col gap-2">
+    <div className={styles.entityRow}>
       <SectionTitle>{title}</SectionTitle>
-      <div className="flex flex-wrap gap-2">
+      <div className={styles.entityChips}>
         {entities.map((e) => (
           <span
             key={e.label}
-            className="inline-flex items-baseline gap-1.5 rounded-full bg-white/70 px-3.5 py-1.5"
+            className={styles.entityChip}
           >
-            <span className="[font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/80">
+            <span className={styles.entityLabel}>
               {e.label}
             </span>
             {e.detail && (
-              <span className="[font-family:'Inter',Helvetica] text-[11px] font-normal text-[#1c2b33]/40">
+              <span className={styles.entityDetail}>
                 · {e.detail}
               </span>
             )}
@@ -167,37 +169,29 @@ export const InsightsView = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative flex h-full w-full flex-col"
+      className={styles.screen}
     >
       {/* Same washed-out pastel orb background as the other screens. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
+        className={styles.bg}
       />
 
       {/* Header + range selector. */}
-      <div className="px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3 sm:pt-12">
-        <h1 className="[font-family:'Inter',Helvetica] text-[28px] font-medium leading-[1.2] tracking-[-0.5px] text-[#1c2b33]">
+      <div className={styles.header}>
+        <h1 className={styles.title}>
           Insights
         </h1>
-        <div className="mt-3">
+        <div className={styles.rangeWrap}>
           <RangeToggle value={range} onChange={setRange} />
         </div>
       </div>
 
       {!hasEntries ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+        <div className={styles.empty}>
           <span
             aria-hidden="true"
-            className="mb-5 flex h-16 w-16 items-center justify-center rounded-full"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(244,231,255,1) 0%, rgba(253,221,222,1) 100%)",
-            }}
+            className={styles.emptyIcon}
           >
             <svg
               width="28"
@@ -214,10 +208,10 @@ export const InsightsView = ({
               <line x1="18" y1="20" x2="18" y2="9" />
             </svg>
           </span>
-          <p className="[font-family:'Inter',Helvetica] text-[19px] font-medium tracking-[-0.3px] text-[#1c2b33]">
+          <p className={styles.emptyTitle}>
             Nothing here yet
           </p>
-          <p className="mt-1.5 max-w-[260px] [font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/55">
+          <p className={styles.emptyBody}>
             No entries in {rangeLabel(range).toLowerCase()}. Finish a session, or
             widen the range to see your patterns.
           </p>
@@ -228,25 +222,25 @@ export const InsightsView = ({
           variants={container}
           initial="hidden"
           animate="show"
-          className="min-h-0 flex-1 overflow-y-auto px-5 pb-24"
+          className={styles.scroll}
         >
           {/* AI period reflection. */}
-          <motion.section variants={item} className="flex flex-col gap-2.5">
+          <motion.section variants={item} className={styles.narrativeSection}>
             {showNarrative ? (
               <>
-                <p className="[font-family:'Inter',Helvetica] text-[20px] font-medium leading-[1.4] tracking-[-0.3px] text-[#1c2b33]">
+                <p className={styles.headline}>
                   {insights.headline}
                 </p>
-                <p className="[font-family:'Inter',Helvetica] text-[16px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]/80">
+                <p className={styles.throughLine}>
                   {insights.throughLine}
                 </p>
                 {insights.shift && (
-                  <p className="[font-family:'Inter',Helvetica] text-[15px] font-normal leading-[1.5] text-[#1c2b33]/65">
+                  <p className={styles.shift}>
                     {insights.shift}
                   </p>
                 )}
                 {insights.question && (
-                  <p className="mt-1 [font-family:'Inter',Helvetica] text-[16px] font-medium leading-[1.45] tracking-[-0.2px] text-[#a07ee0]">
+                  <p className={styles.question}>
                     {insights.question}
                   </p>
                 )}
@@ -256,26 +250,26 @@ export const InsightsView = ({
               // mirroring its shape: a bold headline, a couple of through-line
               // rows, and the purple closing question.
               <div
-                className="flex flex-col gap-2.5"
+                className={styles.skeleton}
                 role="status"
                 aria-label="Generating insights"
               >
                 {/* headline (text-[20px] font-medium) */}
-                <div className="h-[26px] w-4/5 animate-pulse rounded-full bg-[#1c2b33]/12" />
+                <div className={cx(styles.skelHeadline, styles.pulse)} />
                 {/* throughLine (text-[16px], 2 rows) */}
-                <div className="h-[19px] w-full animate-pulse rounded-full bg-[#1c2b33]/[0.08]" />
-                <div className="h-[19px] w-11/12 animate-pulse rounded-full bg-[#1c2b33]/[0.08]" />
+                <div className={cx(styles.skelLine, styles.pulse)} />
+                <div className={cx(styles.skelLineNarrow, styles.pulse)} />
                 {/* shift (text-[15px]) */}
-                <div className="h-[18px] w-2/3 animate-pulse rounded-full bg-[#1c2b33]/[0.07]" />
+                <div className={cx(styles.skelShift, styles.pulse)} />
                 {/* question (text-[16px] purple) */}
-                <div className="mt-1 h-[19px] w-3/4 animate-pulse rounded-full bg-[#a07ee0]/30" />
-                <span className="sr-only">Generating insights…</span>
+                <div className={cx(styles.skelQuestion, styles.pulse)} />
+                <span className={styles.srOnly}>Generating insights…</span>
               </div>
             )}
           </motion.section>
 
           {/* Computed stats. */}
-          <motion.div variants={item} className="mt-7 flex gap-2.5">
+          <motion.div variants={item} className={styles.statsRow}>
             <Stat value={String(data.entryCount)} label="Entries" />
             <Stat value={String(data.totalMinutes)} label="Minutes" />
             <Stat value={data.totalWords.toLocaleString()} label="Words" />
@@ -283,7 +277,7 @@ export const InsightsView = ({
 
           {/* Streak + busiest time, when meaningful. */}
           {(data.streak > 1 || data.busiestTime) && (
-            <motion.div variants={item} className="mt-2.5 flex gap-2.5">
+            <motion.div variants={item} className={styles.statsRowSecondary}>
               {data.streak > 1 && (
                 <Stat value={`${data.streak} days`} label="Streak" />
               )}
@@ -295,7 +289,7 @@ export const InsightsView = ({
 
           {/* Recurring patterns across the period. */}
           {patterns.length > 0 && (
-            <motion.section variants={item} className="mt-8 flex flex-col gap-3">
+            <motion.section variants={item} className={styles.patternsSection}>
               <SectionTitle>Recurring patterns</SectionTitle>
               <PatternTags patterns={patterns} graph={data.graph} range={range} />
             </motion.section>
@@ -303,25 +297,25 @@ export const InsightsView = ({
 
           {/* Top people. */}
           {data.topPeople.length > 0 && (
-            <motion.section variants={item} className="mt-8 flex flex-col gap-5">
+            <motion.section variants={item} className={styles.peopleSection}>
               <EntityRow title="People who came up" entities={data.topPeople} />
             </motion.section>
           )}
 
           {/* The aggregated atom graph — the full life map as a grey backdrop,
               with the selected range lit up in purple. */}
-          <motion.section variants={item} className="mt-8 flex flex-col gap-3">
+          <motion.section variants={item} className={styles.mapSection}>
             <SectionTitle>Your map</SectionTitle>
-            <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
+            <p className={styles.mapDesc}>
               {range === "today" ? (
                 <>
-                  <span className="font-semibold text-[#7c3aed]">Today</span> is
+                  <span className={styles.mapDescHighlight}>Today</span> is
                   lit up in purple against your wider map. Tap any node to see what
                   you said and how it connects.
                 </>
               ) : (
                 <>
-                  <span className="font-semibold text-[#7c3aed]">
+                  <span className={styles.mapDescHighlight}>
                     {rangeLabel(range)}
                   </span>{" "}
                   is lit up in purple — the rest is the grey backdrop of your
@@ -330,7 +324,7 @@ export const InsightsView = ({
                 </>
               )}
             </p>
-            <div className="-mx-5 mt-1">
+            <div className={styles.graphWrap}>
               <EntryGraph graph={data.graph} range={range} height={420} disablePinchZoom />
             </div>
           </motion.section>

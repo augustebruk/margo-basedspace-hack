@@ -1,0 +1,315 @@
+.canvas {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  touch-action: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+.emptyWrap {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding-left: 2.5rem;
+  padding-right: 2.5rem;
+  text-align: center;
+}
+
+.emptyText {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+.edges {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+}
+
+.dotButton {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.dot {
+  display: block;
+  border-radius: 9999px;
+}
+
+.nodeLabel {
+  pointer-events: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+}
+
+/* Zoom controls (top-left pill) */
+.zoomControls {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: rgba(28, 43, 51, 0.6);
+  box-shadow: 0 2px 8px rgba(28, 43, 51, 0.08);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.zoomButton {
+  display: flex;
+  height: 26px;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.zoomButton:hover {
+  color: var(--ink);
+}
+
+.zoomDivider {
+  height: 0.875rem;
+  width: 1px;
+  background: rgba(28, 43, 51, 0.1);
+}
+
+.recenter {
+  position: absolute;
+  right: 0.75rem;
+  top: 0.75rem;
+  z-index: 10;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.25rem 0.75rem;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  color: rgba(28, 43, 51, 0.6);
+  box-shadow: 0 2px 8px rgba(28, 43, 51, 0.08);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.recenter:hover {
+  color: var(--ink);
+}
+
+.insightSheet {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 20;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1rem;
+  box-shadow: 0 14px 40px rgba(28, 43, 51, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* GraphLoading */
+.loadingWrap {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.loadingStage {
+  position: relative;
+}
+
+.loadingSvg {
+  position: absolute;
+  inset: 0;
+}
+
+.loadingDot {
+  position: absolute;
+  border-radius: 9999px;
+}
+
+.loadingText {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+/* NodeInsight sheet contents */
+.insight {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.insightHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.insightHeadMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.insightTypeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.insightType {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.insightBadge {
+  border-radius: 9999px;
+  background: #ede9fe;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hot-purple);
+}
+
+.insightTitle {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+
+.insightMeta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+.insightClose {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: rgba(28, 43, 51, 0.4);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.insightClose:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(28, 43, 51, 0.7);
+}
+
+.insightBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.insightLabel {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+.mentionList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.mention {
+  border-radius: 12px;
+  background: rgba(244, 231, 255, 0.45);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 19px;
+  color: rgba(28, 43, 51, 0.8);
+}
+
+.connList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.connChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid #ece3ff;
+  background: #ffffff;
+  padding: 0.25rem 0.625rem;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.75);
+}
+
+.connRelation {
+  color: #a07ee0;
+}

@@ -1,5 +1,7 @@
 import type { JSX } from "react";
 import { motion } from "motion/react";
+import { cx } from "./cx";
+import styles from "./Controls.module.css";
 
 /* -------------------------------------------------------------------------- */
 /* Icons (inline SVG so we don't pull in an icon dependency). Color is         */
@@ -76,22 +78,8 @@ const KeyboardIcon = (): JSX.Element => (
 );
 
 /* -------------------------------------------------------------------------- */
-/* Color tokens                                                               */
+/* Component                                                                  */
 /* -------------------------------------------------------------------------- */
-
-// Medium gray / soft navy for icons (good contrast, never pure black).
-const ICON_COLOR = "#54656e";
-// Pastel purple from the orb family used for the mic recording ring + icon.
-const RECORD_ACCENT = "#b6a0e0";
-
-// Secondary buttons: a very light, translucent tint of the orb gradient —
-// lighter than the orb itself so they stay subordinate to the mic.
-const sideButtonClass =
-  "all-[unset] box-border flex h-14 w-14 cursor-pointer items-center justify-center rounded-full " +
-  "bg-[linear-gradient(135deg,rgba(244,231,255,0.4)_0%,rgba(253,221,222,0.4)_100%)] " +
-  "border border-[rgba(244,231,255,0.6)] " +
-  "shadow-[0_6px_16px_rgba(28,43,51,0.08)] " +
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]";
 
 interface ControlsProps {
   isRecording: boolean;
@@ -111,16 +99,15 @@ export const Controls = ({
   onNext,
 }: ControlsProps): JSX.Element => {
   return (
-    <div className="flex w-full flex-col items-center gap-4 pb-[env(safe-area-inset-bottom)]">
-      <div className="flex w-full items-center justify-center gap-9">
+    <div className={styles.root}>
+      <div className={styles.row}>
       {/* Left — Finish entry (secondary, soft tint, no color change on press) */}
       <motion.button
         type="button"
         onClick={onFinish}
         whileTap={{ scale: 0.96, boxShadow: "0 10px 24px rgba(28,43,51,0.16)" }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className={sideButtonClass}
-        style={{ color: ICON_COLOR }}
+        className={cx("btnReset", "focusRing", styles.sideButton)}
         aria-label="Finish Entry"
         title="Finish Entry"
       >
@@ -143,24 +130,19 @@ export const Controls = ({
         transition={{ duration: 0.3, ease: "easeOut" }}
         aria-label={isRecording ? "Pause recording" : "Resume recording"}
         aria-pressed={isRecording}
-        style={{ color: isRecording ? RECORD_ACCENT : ICON_COLOR }}
-        className={
-          "all-[unset] box-border relative flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-full " +
-          // Always pure white, with a 1px light pastel border from the orb.
-          "bg-white border " +
-          (isRecording
-            ? "border-[rgba(182,160,224,0.55)]"
-            : "border-[rgba(244,231,255,0.9)]") +
-          " focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
-        }
+        className={cx(
+          "btnReset",
+          "focusRing",
+          styles.micButton,
+          isRecording && styles.micButtonRecording,
+        )}
       >
         {isRecording && (
           <>
             {/* Thin pastel ring that gently pulses around the circle. */}
             <motion.span
               aria-hidden="true"
-              className="absolute -inset-[5px] rounded-full border-2"
-              style={{ borderColor: RECORD_ACCENT }}
+              className={styles.micRing}
               initial={{ opacity: 0.4, scale: 1 }}
               animate={{ opacity: [0.35, 0.85, 0.35], scale: [1, 1.12, 1] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
@@ -168,18 +150,14 @@ export const Controls = ({
             {/* Subtle inner glow in the same pastel. */}
             <motion.span
               aria-hidden="true"
-              className="absolute inset-0 rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle, rgba(182,160,224,0.30) 0%, rgba(182,160,224,0) 70%)",
-              }}
+              className={styles.micGlow}
               animate={{ opacity: [0.4, 0.85, 0.4] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
             />
           </>
         )}
         {/* Icon sits above the glow/ring. */}
-        <span className="relative">
+        <span className={styles.micIcon}>
           <MicIcon />
         </span>
       </motion.button>
@@ -190,8 +168,7 @@ export const Controls = ({
         onClick={onNext}
         whileTap={{ scale: 0.96, boxShadow: "0 10px 24px rgba(28,43,51,0.16)" }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className={sideButtonClass}
-        style={{ color: ICON_COLOR }}
+        className={cx("btnReset", "focusRing", styles.sideButton)}
         aria-label="Next Prompt"
         title="Next Prompt"
       >
@@ -205,11 +182,11 @@ export const Controls = ({
         type="button"
         onClick={onToggleKeyboard}
         aria-pressed={isTyping}
-        className="all-[unset] box-border inline-flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 [font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/45 transition-colors hover:text-[#1c2b33]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+        className={cx("btnReset", "focusRing", styles.keyboardToggle)}
         title={isTyping ? "Switch Back To Voice" : "Type Instead"}
       >
         {isTyping ? (
-          <span className="[&>svg]:h-5 [&>svg]:w-5">
+          <span className={styles.keyboardToggleIcon}>
             <MicIcon />
           </span>
         ) : (

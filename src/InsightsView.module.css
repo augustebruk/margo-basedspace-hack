@@ -1,0 +1,369 @@
+/* ============================================================================
+ * InsightsView — co-located CSS Module (translated 1:1 from inline Tailwind).
+ * ==========================================================================*/
+
+/* Root screen container — relative flex h-full w-full flex-col */
+.screen {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+}
+
+/* Washed-out pastel orb background — absolute inset-0 -z-10 + screen gradient */
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  background: var(--grad-screen);
+}
+
+/* Header + range selector — px-5 pt-12 pb-3 */
+.header {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-top: 3rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Back button — mb-3 inline-flex items-center gap-1.5 + type + color */
+.backBtn {
+  margin-bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.55);
+}
+.backBtn:hover {
+  color: rgba(28, 43, 51, 0.85);
+}
+
+/* Title — text-[28px] font-medium leading-[1.2] tracking-[-0.5px] text-[#1c2b33] */
+.title {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+
+/* mt-3 wrapper around RangeToggle */
+.rangeWrap {
+  margin-top: 0.75rem;
+}
+
+/* Empty state — flex flex-1 flex-col items-center justify-center px-8 text-center */
+.empty {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  text-align: center;
+}
+
+/* Empty icon disc — mb-5 flex h-16 w-16 items-center justify-center rounded-full + orb gradient */
+.emptyIcon {
+  margin-bottom: 1.25rem;
+  display: flex;
+  height: 4rem;
+  width: 4rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--grad-orb);
+}
+
+/* Empty title — text-[19px] font-medium tracking-[-0.3px] text-[#1c2b33] */
+.emptyTitle {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+
+/* Empty body — mt-1.5 max-w-[260px] text-[14px] font-normal leading-[21px] text-[#1c2b33]/55 */
+.emptyBody {
+  margin-top: 0.375rem;
+  max-width: 260px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+/* Scroll body — min-h-0 flex-1 overflow-y-auto px-5 pb-24 */
+.scroll {
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow-y: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: 6rem;
+}
+
+/* AI period reflection section — flex flex-col gap-2.5 */
+.narrativeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+/* headline — text-[20px] font-medium leading-[1.4] tracking-[-0.3px] text-[#1c2b33] */
+.headline {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+
+/* throughLine — text-[16px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]/80 */
+.throughLine {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.2px;
+  color: rgba(28, 43, 51, 0.8);
+}
+
+/* shift — text-[15px] font-normal leading-[1.5] text-[#1c2b33]/65 */
+.shift {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(28, 43, 51, 0.65);
+}
+
+/* question — mt-1 text-[16px] font-medium leading-[1.45] tracking-[-0.2px] text-[#a07ee0] */
+.question {
+  margin-top: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.2px;
+  color: #a07ee0;
+}
+
+/* Skeleton container — flex flex-col gap-2.5 */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+/* Tailwind's default animate-pulse keyframe. */
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Skeleton bars (rounded-full pulse + sizes/colors). */
+.skelHeadline {
+  height: 26px;
+  width: 80%;
+  border-radius: 9999px;
+  background: rgba(28, 43, 51, 0.12);
+}
+.skelLine {
+  height: 19px;
+  width: 100%;
+  border-radius: 9999px;
+  background: rgba(28, 43, 51, 0.08);
+}
+.skelLineNarrow {
+  height: 19px;
+  width: 91.666667%;
+  border-radius: 9999px;
+  background: rgba(28, 43, 51, 0.08);
+}
+.skelShift {
+  height: 18px;
+  width: 66.666667%;
+  border-radius: 9999px;
+  background: rgba(28, 43, 51, 0.07);
+}
+.skelQuestion {
+  margin-top: 0.25rem;
+  height: 19px;
+  width: 75%;
+  border-radius: 9999px;
+  background: rgba(160, 126, 224, 0.3);
+}
+
+/* sr-only — visually hidden, accessible to AT. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Stats row — mt-7 flex gap-2.5 */
+.statsRow {
+  margin-top: 1.75rem;
+  display: flex;
+  gap: 0.625rem;
+}
+
+/* Secondary stats row — mt-2.5 flex gap-2.5 */
+.statsRowSecondary {
+  margin-top: 0.625rem;
+  display: flex;
+  gap: 0.625rem;
+}
+
+/* Stat card — flex flex-1 flex-col items-center gap-0.5 rounded-[16px] bg-white/70 px-3 py-3 */
+.stat {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Stat value — text-[22px] font-semibold tracking-[-0.4px] text-[#1c2b33] */
+.statValue {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+}
+
+/* Stat label — text-[12px] font-normal uppercase tracking-[0.8px] text-[#1c2b33]/45 */
+.statLabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+/* Recurring patterns section — mt-8 flex flex-col gap-3 */
+.patternsSection {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Top people section — mt-8 flex flex-col gap-5 */
+.peopleSection {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Map section — mt-8 flex flex-col gap-3 */
+.mapSection {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Map description — text-[13px] font-normal leading-[19px] text-[#1c2b33]/55 */
+.mapDesc {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19px;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+/* Highlighted range word inside the map description — font-semibold text-[#7c3aed] */
+.mapDescHighlight {
+  font-weight: 600;
+  color: var(--hot-purple);
+}
+
+/* Graph wrapper — -mx-5 mt-1 */
+.graphWrap {
+  margin-left: -1.25rem;
+  margin-right: -1.25rem;
+  margin-top: 0.25rem;
+}
+
+/* Section title — text-[12px] font-medium uppercase tracking-[1.4px] text-[#1c2b33]/40 */
+.sectionTitle {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+/* EntityRow container — flex flex-col gap-2 */
+.entityRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* EntityRow chip list — flex flex-wrap gap-2 */
+.entityChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Entity chip — inline-flex items-baseline gap-1.5 rounded-full bg-white/70 px-3.5 py-1.5 */
+.entityChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.7);
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+/* Entity chip label — text-[13px] font-medium text-[#1c2b33]/80 */
+.entityLabel {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.8);
+}
+
+/* Entity chip detail — text-[11px] font-normal text-[#1c2b33]/40 */
+.entityDetail {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(28, 43, 51, 0.4);
+}

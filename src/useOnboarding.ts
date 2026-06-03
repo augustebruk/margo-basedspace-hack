@@ -50,18 +50,6 @@ export function useOnboarding(): UseOnboardingResult {
   const [name, setNameState] = useState<string>(readName);
   const [onboardingComplete, setComplete] = useState<boolean>(readComplete);
 
-  const setName = useCallback((next: string) => {
-    // An override always wins — ignore captured names while it's set.
-    if (import.meta.env.VITE_OVERRIDE_NAME) return;
-    const value = next.trim();
-    setNameState(value);
-    try {
-      localStorage.setItem(NAME_KEY, value);
-    } catch {
-      // ignore (private mode / storage disabled)
-    }
-  }, []);
-
   const completeOnboarding = useCallback(() => {
     setComplete(true);
     try {
@@ -70,6 +58,24 @@ export function useOnboarding(): UseOnboardingResult {
       // ignore
     }
   }, []);
+
+  const setName = useCallback(
+    (next: string) => {
+      // An override always wins — ignore captured names while it's set.
+      if (import.meta.env.VITE_OVERRIDE_NAME) return;
+      const value = next.trim();
+      setNameState(value);
+      try {
+        localStorage.setItem(NAME_KEY, value);
+      } catch {
+        // ignore (private mode / storage disabled)
+      }
+      // Capturing a name is enough to consider onboarding done — once we know
+      // who they are, returning users skip the First Mirror Moment.
+      if (value) completeOnboarding();
+    },
+    [completeOnboarding],
+  );
 
   const reset = useCallback(() => {
     setComplete(false);

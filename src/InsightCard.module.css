@@ -1,0 +1,149 @@
+.root {
+  position: relative;
+  width: 100%;
+  isolation: isolate;
+}
+
+.card {
+  position: relative;
+  border-radius: 26px;
+}
+
+.glow {
+  pointer-events: none;
+  position: absolute;
+  inset: -1.5rem;
+  filter: blur(40px);
+  background: radial-gradient(
+    120% 120% at 50% 40%,
+    rgba(244, 231, 255, 0.9) 0%,
+    rgba(253, 221, 222, 0.7) 45%,
+    rgba(255, 255, 255, 0) 72%
+  );
+}
+
+.body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.headerIcon {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--grad-orb);
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+.coreBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.summaryLine {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+.coreQuestion {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+
+.triggers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.triggersLabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+.triggersList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.triggerItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.triggerBullet {
+  margin-top: 7px;
+  height: 0.375rem;
+  width: 0.375rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--grad-step);
+}
+
+.triggerText {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.75);
+}
+
+.margoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  border-radius: 18px;
+  background: rgba(244, 231, 255, 0.45);
+  padding: 0.875rem 1rem;
+}
+
+.margoLabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+.margoQuestion {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+  color: rgba(28, 43, 51, 0.85);
+}

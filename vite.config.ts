@@ -1,6 +1,5 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import { scribeTokenPlugin } from "./vite-plugins/scribeToken";
 import { reflectionPlugin } from "./vite-plugins/reflection";
 import { ttsPlugin } from "./vite-plugins/tts";
@@ -14,7 +13,6 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      tailwindcss(),
       scribeTokenPlugin(env.ELEVENLABS_API_KEY),
       reflectionPlugin(env.ANTHROPIC_API_KEY),
       ttsPlugin(env.ELEVENLABS_API_KEY, env.ELEVENLABS_VOICE_ID),

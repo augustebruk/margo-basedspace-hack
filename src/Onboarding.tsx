@@ -17,6 +17,8 @@ import { useScribe } from "./useScribe";
 import { useMargoVoice } from "./useMargoVoice";
 import { useInsight, type Insight } from "./useInsight";
 import { highlightPhrases } from "./highlight";
+import { cx } from "./cx";
+import styles from "./Onboarding.module.css";
 
 /* ============================================================================
  * Onboarding — "Your First Mirror Moment".
@@ -219,20 +221,16 @@ export const Onboarding = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, y: -40, scale: 0.96 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="relative flex h-full w-full flex-col overflow-hidden"
+      className={styles.root}
     >
       {/* Soft pastel wash background, consistent across all steps. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
+        className={styles.bgWash}
       />
       <MargoLogo
         onClick={name ? onSkipToHome : undefined}
-        className="absolute top-7 left-1/2 -translate-x-1/2 z-10"
+        className={styles.logo}
       />
 
       <AnimatePresence mode="wait">
@@ -315,9 +313,9 @@ const TapPrompt = ({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
         transition={{ duration: 0.4, ease: EASE }}
-        className="all-[unset] box-border inline-flex cursor-pointer items-center gap-2 rounded-full bg-white/70 px-5 py-2.5 shadow-[0_8px_24px_rgba(28,43,51,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+        className={cx("btnReset", "focusRing", styles.tapPrompt)}
       >
-        <span className="[font-family:'Inter',Helvetica] text-[14px] font-medium tracking-[-0.2px] text-[#1c2b33]/70">
+        <span className={styles.tapPromptLabel}>
           {label}
         </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1c2b33" strokeOpacity="0.5" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -345,6 +343,23 @@ const PencilIcon = (): JSX.Element => (
   </svg>
 );
 
+/* A labeled "Type instead" pill, mirroring the in-app keyboard toggle. */
+const KeyboardToggle = ({ onClick }: { onClick: () => void }): JSX.Element => (
+  <motion.button
+    type="button"
+    onClick={onClick}
+    initial={{ opacity: 0, y: 6 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: 6 }}
+    transition={{ duration: 0.35, ease: EASE }}
+    aria-label="Type instead"
+    className={cx("btnReset", "focusRing", styles.keyboardToggle)}
+  >
+    <KeyboardIcon />
+    <span>Type instead</span>
+  </motion.button>
+);
+
 const GhostIconButton = ({
   label,
   onClick,
@@ -358,7 +373,7 @@ const GhostIconButton = ({
     type="button"
     onClick={onClick}
     aria-label={label}
-    className="all-[unset] inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-[#1c2b33]/35 transition-colors hover:text-[#1c2b33]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+    className={cx("btnReset", "focusRing", styles.ghostIconButton)}
   >
     {children}
   </button>
@@ -392,16 +407,13 @@ const KeyboardInput = ({
     if (trimmed) onSubmit(trimmed);
   };
 
-  const fieldClass =
-    "w-full rounded-2xl border border-[#1c2b33]/10 bg-white/85 px-4 py-3 [font-family:'Inter',Helvetica] text-[16px] text-[#1c2b33] placeholder:text-[#1c2b33]/30 shadow-[0_8px_24px_rgba(28,43,51,0.06)] focus:border-[#c7a6f5]/60 focus:outline-none";
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 8 }}
       transition={{ duration: 0.3, ease: EASE }}
-      className="flex w-full max-w-[320px] flex-col items-center gap-3"
+      className={styles.kbdRoot}
     >
       {multiline ? (
         <textarea
@@ -412,7 +424,7 @@ const KeyboardInput = ({
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
           rows={3}
-          className={`${fieldClass} resize-none leading-[22px]`}
+          className={cx(styles.kbdField, styles.kbdFieldTextarea)}
         />
       ) : (
         <input
@@ -428,14 +440,14 @@ const KeyboardInput = ({
             }
           }}
           placeholder={placeholder}
-          className={`${fieldClass} text-center`}
+          className={cx(styles.kbdField, styles.kbdFieldInput)}
         />
       )}
-      <div className="flex items-center gap-2">
+      <div className={styles.kbdActions}>
         <button
           type="button"
           onClick={onCancel}
-          className="all-[unset] cursor-pointer rounded-full px-4 py-2 [font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+          className={cx("btnReset", "focusRing", styles.kbdCancel)}
         >
           Cancel
         </button>
@@ -443,11 +455,7 @@ const KeyboardInput = ({
           type="button"
           onClick={submit}
           disabled={!value.trim()}
-          className="all-[unset] box-border inline-flex cursor-pointer items-center rounded-full px-5 py-2 [font-family:'Inter',Helvetica] text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(199,166,245,0.4)] disabled:cursor-default disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          style={{
-            background:
-              "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
-          }}
+          className={cx("btnReset", styles.kbdSubmit)}
         >
           {submitLabel}
         </button>
@@ -488,13 +496,23 @@ const EntranceStep = ({
       onClick={onBegin}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.45, ease: "easeInOut" }}
-      className="all-[unset] relative flex h-full w-full cursor-pointer flex-col items-center justify-center gap-10 px-8"
+      className={cx("btnReset", styles.entranceRoot)}
       aria-label="Tap To Begin"
     >
       <BulbAvatar state={unlocked ? "aiSpeaking" : "idle"} />
 
-      <div className="flex min-h-[88px] flex-col items-center gap-2.5 text-center">
-        {unlocked &&
+      <div className={styles.entranceTextBlock}>
+        {!unlocked ? (
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: EASE }}
+            className={styles.entrancePrompt}
+          >
+            Tap anywhere to begin
+          </motion.p>
+        ) : (
           ENTRANCE_LINES.map((line, i) =>
             i < revealed ? (
               <motion.p
@@ -504,14 +522,15 @@ const EntranceStep = ({
                 transition={{ duration: 0.6, ease: EASE }}
                 className={
                   i === 0
-                    ? "[font-family:'Inter',Helvetica] text-[30px] font-medium leading-[1.2] tracking-[-0.5px] text-[#1c2b33]"
-                    : "[font-family:'Inter',Helvetica] text-[19px] font-normal italic leading-[1.4] tracking-[-0.2px] text-[#1c2b33]/65"
+                    ? styles.entranceLinePrimary
+                    : styles.entranceLineSecondary
                 }
               >
                 {line}
               </motion.p>
             ) : null,
-          )}
+          )
+        )}
       </div>
     </motion.button>
   );
@@ -521,12 +540,11 @@ const EntranceStep = ({
 /* Live "waves" — concentric rings that ripple while the user speaks.         */
 /* -------------------------------------------------------------------------- */
 const NameWaves = ({ active }: { active: boolean }): JSX.Element => (
-  <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center">
+  <div aria-hidden="true" className={styles.nameWaves}>
     {[0, 1, 2].map((i) => (
       <motion.span
         key={i}
-        className="absolute rounded-full border border-[#c7a6f5]/40"
-        style={{ width: 180, height: 180 }}
+        className={styles.nameWave}
         animate={
           active
             ? { scale: [0.7, 1.5], opacity: [0.5, 0] }
@@ -572,15 +590,15 @@ const NameStep = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, y: -24 }}
       transition={{ duration: 0.45, ease: "easeInOut" }}
-      className="relative flex h-full w-full flex-col items-center justify-center gap-12 px-8"
+      className={styles.nameRoot}
     >
-      <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] text-[22px] font-medium leading-[1.3] tracking-[-0.4px] text-[#1c2b33]">
+      <p className={styles.namePrompt}>
         {LINE_NAME}
       </p>
 
       {/* Orb stays centered. Once a name is heard, a pencil appears next to it. */}
-      <div className="relative flex items-center justify-center">
-        <div className="relative flex h-[180px] w-[180px] items-center justify-center">
+      <div className={styles.nameOrbOuter}>
+        <div className={styles.nameOrbInner}>
           <NameWaves active={recording && !speaking && !typing} />
           <BulbAvatar state={speaking ? "aiSpeaking" : "personSpeaking"} size={120} />
           {display && (
@@ -589,13 +607,13 @@ const NameStep = ({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4, ease: EASE }}
-              className="absolute flex items-center gap-1"
+              className={styles.nameCaptured}
             >
-              <span className="[font-family:'Inter',Helvetica] text-[28px] font-medium tracking-[-0.5px] text-[#1c2b33]">
+              <span className={styles.nameCapturedText}>
                 {display}
               </span>
               {!typing && (
-                <span className="-mr-6">
+                <span className={styles.namePencilSlot}>
                   <GhostIconButton
                     label="Edit Your Name"
                     onClick={() => {
@@ -612,7 +630,7 @@ const NameStep = ({
         </div>
       </div>
 
-      <div className="flex min-h-[48px] flex-col items-center gap-2">
+      <div className={styles.nameControls}>
         <AnimatePresence mode="wait">
           {typing ? (
             <KeyboardInput
@@ -624,16 +642,27 @@ const NameStep = ({
               onCancel={() => setTyping(false)}
             />
           ) : (
-            <TapPrompt
-              key="tap"
-              show={canAdvance}
-              label={display ? `My Name Is ${display}` : "Try Again"}
-              onTap={onConfirm}
-            />
+            <div key="voice" className={styles.nameVoiceBlock}>
+              <TapPrompt
+                show={canAdvance}
+                label={display ? `My Name Is ${display}` : "Try Again"}
+                onTap={onConfirm}
+              />
+              {/* Keyboard alternative — always available, even before speaking,
+                  mirroring the in-app entry controls. */}
+              {!speaking && (
+                <KeyboardToggle
+                  onClick={() => {
+                    onOpenKeyboard();
+                    setTyping(true);
+                  }}
+                />
+              )}
+            </div>
           )}
         </AnimatePresence>
         {error && !speaking && !typing && (
-          <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] text-[13px] text-[#d4576a]">
+          <p className={styles.nameError}>
             {error}
           </p>
         )}
@@ -643,25 +672,7 @@ const NameStep = ({
 };
 
 /* -------------------------------------------------------------------------- */
-/* Count-up timer (mm:ss).                                                    */
-/* -------------------------------------------------------------------------- */
-const useElapsed = (running: boolean): string => {
-  const [ms, setMs] = useState(0);
-  useEffect(() => {
-    if (!running) return;
-    const start = Date.now();
-    setMs(0);
-    const id = setInterval(() => setMs(Date.now() - start), 200);
-    return () => clearInterval(id);
-  }, [running]);
-  const total = Math.floor(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
-
-/* -------------------------------------------------------------------------- */
-/* Step 3 — First Yap: speak freely; timer + live transcription; tap to end.  */
+/* Step 3 — First Yap: speak freely; live transcription; tap to end.          */
 /* -------------------------------------------------------------------------- */
 const FirstYapStep = ({
   name,
@@ -684,48 +695,28 @@ const FirstYapStep = ({
   onOpenKeyboard: () => void;
   onSubmitTyped: (value: string) => void;
 }): JSX.Element => {
-  const elapsed = useElapsed(recording && !speaking);
   const [typing, setTyping] = useState(false);
-  const timerRunning = recording && !speaking && !typing;
-  const [showTimer, setShowTimer] = useState(false);
-  useEffect(() => {
-    if (!timerRunning) {
-      setShowTimer(false);
-      return;
-    }
-    setShowTimer(true);
-    const t = setTimeout(() => setShowTimer(false), 5000);
-    return () => clearTimeout(t);
-  }, [timerRunning]);
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, y: -24 }}
       transition={{ duration: 0.45, ease: "easeInOut" }}
-      className="relative flex h-full w-full flex-col items-center px-7 pt-[120px] pb-9"
+      className={styles.yapRoot}
     >
-      <div className="flex max-w-[330px] items-start justify-center">
-        <p className="text-center [font-family:'Inter',Helvetica] text-[20px] font-medium leading-[1.32] tracking-[-0.3px] text-[#1c2b33]">
+      <div className={styles.yapPromptWrap}>
+        <p className={styles.yapPrompt}>
           {speaking ? lineFirstYap(name) : `I'm listening, ${name}…`}
         </p>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-6">
-        <div className="relative flex items-center justify-center">
-          <BulbAvatar state={speaking ? "aiSpeaking" : "personSpeaking"} size={150} />
+      <div className={styles.yapOrbBlock}>
+        <div className={styles.yapOrbWrap}>
+          <BulbAvatar state={speaking ? "aiSpeaking" : "personSpeaking"} size={232} />
         </div>
-        <motion.span
-          aria-hidden={!showTimer}
-          animate={{ opacity: showTimer ? 1 : 0 }}
-          transition={{ duration: 3, ease: "easeInOut" }}
-          className="[font-family:'Inter',Helvetica] text-[14px] font-medium tabular-nums tracking-[1px] text-[#1c2b33]/45"
-        >
-          {elapsed}
-        </motion.span>
       </div>
 
-      <div className="flex w-full flex-col items-center gap-5">
+      <div className={styles.yapBottom}>
         <AnimatePresence mode="wait">
           {typing ? (
             <KeyboardInput
@@ -738,33 +729,37 @@ const FirstYapStep = ({
               onCancel={() => setTyping(false)}
             />
           ) : (
-            <div key="voice" className="flex w-full flex-col items-center gap-5">
-              <div className="flex min-h-[64px] w-full items-end justify-center">
-                <p className="max-w-[320px] text-center [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[22px] text-[#1c2b33]/60">
-                  {transcript || (recording && !speaking ? "Listening…" : "")}
-                </p>
-              </div>
-              <div className="relative flex w-full items-center justify-center">
-                {!typing && (
-                  <div className="absolute right-[calc(50%+70px)]">
-                    <GhostIconButton
-                      label="Type Your Entry Instead"
-                      onClick={() => {
-                        onOpenKeyboard();
-                        setTyping(true);
-                      }}
-                    >
-                      <KeyboardIcon />
-                    </GhostIconButton>
+            <div key="voice" className={styles.yapVoiceBlock}>
+              <div className={styles.yapTranscriptWrap}>
+                {recording && !speaking ? (
+                  <div className={styles.yapTurnGroup}>
+                    <span className={styles.yapTurnLabel}>Your turn</span>
+                    <p className={styles.yapTranscript}>
+                      {transcript || "Listening…"}
+                    </p>
                   </div>
+                ) : (
+                  <p className={styles.yapTranscript}>{transcript}</p>
                 )}
+              </div>
+              <div className={styles.yapPromptRow}>
                 <TapPrompt show={canAdvance} label="I'm Done" onTap={onFinish} />
+                {/* Keyboard alternative — always available, mirroring the
+                    in-app entry controls. */}
+                {!speaking && (
+                  <KeyboardToggle
+                    onClick={() => {
+                      onOpenKeyboard();
+                      setTyping(true);
+                    }}
+                  />
+                )}
               </div>
             </div>
           )}
         </AnimatePresence>
         {error && !speaking && !typing && (
-          <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] text-[13px] text-[#d4576a]">
+          <p className={styles.yapError}>
             {error}
           </p>
         )}
@@ -846,11 +841,11 @@ const MirrorStep = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, y: -24 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="relative flex h-full w-full flex-col px-6 pt-[104px] pb-8"
+      className={styles.mirrorRoot}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={styles.mirrorScroll}>
         {/* The user's own words, replayed line-by-line. */}
-        <div className="flex flex-col gap-2.5">
+        <div className={styles.mirrorLines}>
           {segmentsByLine.map((segs, i) =>
             i < shownLines ? (
               <motion.p
@@ -858,7 +853,7 @@ const MirrorStep = ({
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: beat === "card" ? 0.55 : 1, y: 0 }}
                 transition={{ duration: 0.6, ease: EASE }}
-                className="[font-family:'Inter',Helvetica] text-[18px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]/85"
+                className={styles.mirrorLine}
               >
                 {segs.map((seg, j) =>
                   seg.highlight ? (
@@ -874,7 +869,7 @@ const MirrorStep = ({
                           : { backgroundColor: "rgba(244,231,255,0)" }
                       }
                       transition={{ duration: 0.7, ease: "easeOut" }}
-                      className="rounded-[6px] px-1 font-medium text-[#1c2b33]"
+                      className={styles.mirrorHighlight}
                     >
                       {seg.text}
                     </motion.span>
@@ -890,14 +885,14 @@ const MirrorStep = ({
         {/* The insight card slides up once Margo has spoken. */}
         <AnimatePresence>
           {beat === "card" && (
-            <div className="mt-8">
+            <div className={styles.mirrorCardWrap}>
               <InsightCard insight={insight} />
             </div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="flex justify-center pt-4">
+      <div className={styles.mirrorFooter}>
         <TapPrompt show={beat === "card"} label="Continue" onTap={onContinue} />
       </div>
     </motion.div>
@@ -988,10 +983,10 @@ const InvitationStep = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, y: -24 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="relative flex h-full w-full flex-col px-6 pt-[104px] pb-9"
+      className={styles.invitationRoot}
     >
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-6">
-        <p className="text-center [font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.45] tracking-[-0.2px] text-[#1c2b33]/85">
+      <div className={styles.invitationBody}>
+        <p className={styles.invitationLead}>
           {LINE_INVITE_2}
         </p>
 
@@ -999,13 +994,13 @@ const InvitationStep = ({
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.2 }}
-          className="overflow-hidden rounded-[24px] bg-white/80 p-2 shadow-[0_12px_36px_rgba(28,43,51,0.07)]"
+          className={styles.invitationGraphCard}
         >
           <EntryGraph graph={graph} range="week" height={220} />
         </motion.div>
       </div>
 
-      <div className="flex flex-col items-center gap-3 pt-4">
+      <div className={styles.invitationFooter}>
         <motion.button
           type="button"
           onClick={onStartNoticing}
@@ -1013,40 +1008,36 @@ const InvitationStep = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: EASE, delay: 0.4 }}
           whileTap={{ scale: 0.97 }}
-          className="all-[unset] box-border flex h-14 w-full cursor-pointer items-center justify-center rounded-full shadow-[0_14px_34px_rgba(199,166,245,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          style={{
-            background:
-              "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
-          }}
+          className={cx("btnReset", styles.invitationCta)}
           aria-label="Start Noticing"
         >
-          <span className="[font-family:'Inter',Helvetica] text-[16px] font-semibold tracking-[-0.2px] text-white">
+          <span className={styles.invitationCtaLabel}>
             Start Noticing
-            <span className="font-normal opacity-80"> · Era 1 is free</span>
+            <span className={styles.invitationCtaSub}> · Era 1 is free</span>
           </span>
         </motion.button>
         <button
           type="button"
           onClick={onSaveAndExit}
-          className="all-[unset] cursor-pointer rounded-sm px-3 py-1 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+          className={cx("btnReset", "focusRing", styles.invitationSecondary)}
         >
           Save &amp; Exit
         </button>
-        <p className="max-w-[320px] [font-family:'Inter',Helvetica] font-normal text-[13px] text-center tracking-[-0.05px] leading-[18px]">
-          <span className="text-[#1c2b33]/55">
+        <p className={styles.invitationLegal}>
+          <span className={styles.invitationLegalMuted}>
             By tapping &apos;Start Noticing&apos; and using our app,
             you&apos;re agreeing to our{" "}
           </span>
           <a
             href={legalLinks[0].href}
-            className="text-[#c7a6f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5] rounded-sm"
+            className={styles.invitationLegalLink}
           >
             {legalLinks[0].label}
           </a>
-          <span className="text-[#1c2b33]/55"> and </span>
+          <span className={styles.invitationLegalMuted}> and </span>
           <a
             href={legalLinks[1].href}
-            className="text-[#c7a6f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5] rounded-sm"
+            className={styles.invitationLegalLink}
           >
             {legalLinks[1].label}
           </a>

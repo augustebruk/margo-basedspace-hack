@@ -1,0 +1,102 @@
+.root {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 2.25rem;
+}
+
+/* Secondary side buttons (finish / next) — soft translucent tint of the orb. */
+.sideButton {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  height: 3.5rem;
+  width: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: linear-gradient(
+    135deg,
+    rgba(244, 231, 255, 0.4) 0%,
+    rgba(253, 221, 222, 0.4) 100%
+  );
+  border: 1px solid rgba(244, 231, 255, 0.6);
+  box-shadow: 0 6px 16px rgba(28, 43, 51, 0.08);
+  color: var(--icon-gray);
+}
+
+/* Center mic button (dominant) — always pure white. */
+.micButton {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  height: 72px;
+  width: 72px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid rgba(244, 231, 255, 0.9);
+  color: var(--icon-gray);
+}
+
+.micButtonRecording {
+  border-color: rgba(182, 160, 224, 0.55);
+  color: var(--record-accent);
+}
+
+.micRing {
+  position: absolute;
+  inset: -5px;
+  border-radius: 9999px;
+  border: 2px solid var(--record-accent);
+}
+
+.micGlow {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(182, 160, 224, 0.3) 0%,
+    rgba(182, 160, 224, 0) 70%
+  );
+}
+
+.micIcon {
+  position: relative;
+}
+
+/* Keyboard toggle — switch between speaking and typing for this turn. */
+.keyboardToggle {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.375rem 0.875rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.45);
+  transition: color 0.15s ease;
+}
+
+.keyboardToggle:hover {
+  color: rgba(28, 43, 51, 0.7);
+}
+
+.keyboardToggleIcon > svg {
+  height: 1.25rem;
+  width: 1.25rem;
+}

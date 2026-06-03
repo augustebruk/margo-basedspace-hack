@@ -1,0 +1,343 @@
+.root {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  background: var(--grad-screen);
+}
+
+/* ---- Header ---- */
+.header {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-top: 3rem;
+  padding-bottom: 0.75rem;
+}
+
+.backButton {
+  margin-bottom: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+.backButton:hover {
+  color: rgba(28, 43, 51, 0.85);
+}
+
+.dateLine {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+.topic {
+  margin-top: 0.25rem;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+
+/* ---- Scrollable body ---- */
+.body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: 6rem;
+}
+
+/* ---- Shared section title ---- */
+.sectionTitle {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+/* ---- Stats ---- */
+.stats {
+  display: flex;
+  gap: 0.625rem;
+}
+
+.stat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.statValue {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+}
+
+.statLabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+/* ---- Sections ---- */
+.section {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reflectionText {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.2px;
+  color: var(--ink);
+}
+
+/* ---- Patterns / map ---- */
+.mapHeader {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.grewNote {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19px;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+.grewCount {
+  font-weight: 600;
+  color: var(--hot-purple);
+}
+
+.graphWrap {
+  margin-left: -1.25rem;
+  margin-right: -1.25rem;
+  margin-top: 0.25rem;
+}
+
+/* ---- Next steps ---- */
+.stepsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stepItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.stepRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.stepDot {
+  margin-top: 7px;
+  height: 0.375rem;
+  width: 0.375rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--grad-step);
+}
+
+.stepText {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.75);
+}
+
+.stepResponse {
+  margin-left: 1rem;
+  border-radius: 12px;
+  border: 1px solid #e7e2ef;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 0.75rem;
+}
+
+.stepResponseText {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 19px;
+  color: rgba(28, 43, 51, 0.7);
+}
+
+/* ---- Transcript ---- */
+.turns {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.turnQuestion {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: #a07ee0;
+}
+
+.turnAnswer {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 23px;
+  color: var(--ink);
+}
+
+.transcriptEmpty {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.5);
+}
+
+/* ---- Delete ---- */
+.deleteSection {
+  margin-top: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.confirmWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.confirmText {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+  color: rgba(28, 43, 51, 0.6);
+}
+
+.confirmRow {
+  display: flex;
+  gap: 0.625rem;
+}
+
+.confirmDelete {
+  flex: 1;
+  border-radius: 14px;
+  background: #e5484d;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  transition: background-color 0.15s ease;
+}
+
+.confirmDelete:hover {
+  background: #d33a3f;
+}
+
+.confirmDelete.focusRing:focus-visible {
+  outline-color: #e5484d;
+}
+
+.confirmCancel {
+  flex: 1;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.75);
+  transition: background-color 0.15s ease;
+}
+
+.confirmCancel:hover {
+  background: #fff;
+}
+
+.deleteTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 14px;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(229, 72, 77, 0.8);
+  transition: color 0.15s ease;
+}
+
+.deleteTrigger:hover {
+  color: #e5484d;
+}
+
+.deleteTrigger.focusRing:focus-visible {
+  outline-color: #e5484d;
+}

@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { motion } from "motion/react";
 import type { Insight } from "./useInsight";
+import styles from "./InsightCard.module.css";
 
 /* ============================================================================
  * InsightCard — the onboarding "Pattern Reveal" wow moment.
@@ -20,60 +21,60 @@ export const InsightCard = ({ insight }: InsightCardProps): JSX.Element => {
       initial={{ opacity: 0, y: 64 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: EASE }}
-      className="relative w-full isolate"
+      className={styles.root}
     >
-      <div className="relative rounded-[26px]">
+      <div className={styles.card}>
         {/* Soft pastel glow that fades out toward the edges so the card melts
             into the (white) background instead of reading as a hard-edged box.
             No border / drop shadow / opaque fill = no visible corners. */}
         <motion.div
           aria-hidden="true"
-          className="pointer-events-none absolute -inset-6 blur-2xl bg-[radial-gradient(120%_120%_at_50%_40%,rgba(244,231,255,0.9)_0%,rgba(253,221,222,0.7)_45%,rgba(255,255,255,0)_72%)]"
+          className={styles.glow}
           animate={{ opacity: [0.45, 0.7, 0.45], scale: [1, 1.04, 1] }}
           transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        <div className="relative flex flex-col gap-5 px-6 py-6">
+        <div className={styles.body}>
         {/* Header */}
-        <div className="flex items-center gap-2">
+        <div className={styles.header}>
           <span
             aria-hidden="true"
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)]"
+            className={styles.headerIcon}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c5cbf" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 12a9 9 0 1 0 3-6.7" />
               <path d="M3 4v4h4" />
             </svg>
           </span>
-          <span className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.4px] text-[#1c2b33]/45">
+          <span className={styles.eyebrow}>
             Pattern Reveal
           </span>
         </div>
 
         {/* Core question */}
-        <div className="flex flex-col gap-1.5">
-          <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal text-[#1c2b33]/55">
+        <div className={styles.coreBlock}>
+          <p className={styles.summaryLine}>
             {insight.summaryLine}
           </p>
-          <p className="[font-family:'Inter',Helvetica] text-[26px] font-medium leading-[1.25] tracking-[-0.5px] text-[#1c2b33]">
+          <p className={styles.coreQuestion}>
             “{insight.coreQuestion}”
           </p>
         </div>
 
         {/* Triggers */}
         {insight.triggers.length > 0 && (
-          <div className="flex flex-col gap-2.5">
-            <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.2px] text-[#1c2b33]/40">
+          <div className={styles.triggers}>
+            <p className={styles.triggersLabel}>
               This shows up when
             </p>
-            <ul className="flex flex-col gap-2">
+            <ul className={styles.triggersList}>
               {insight.triggers.map((t, i) => (
-                <li key={i} className="flex items-start gap-2.5">
+                <li key={i} className={styles.triggerItem}>
                   <span
                     aria-hidden="true"
-                    className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
+                    className={styles.triggerBullet}
                   />
-                  <span className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/75">
+                  <span className={styles.triggerText}>
                     {t}
                   </span>
                 </li>
@@ -83,11 +84,11 @@ export const InsightCard = ({ insight }: InsightCardProps): JSX.Element => {
         )}
 
         {/* Margo asks */}
-        <div className="flex flex-col gap-1.5 rounded-[18px] bg-[rgba(244,231,255,0.45)] px-4 py-3.5">
-          <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.2px] text-[#1c2b33]/40">
+        <div className={styles.margoBlock}>
+          <p className={styles.margoLabel}>
             Margo asks
           </p>
-          <p className="[font-family:'Inter',Helvetica] text-[16px] font-normal leading-[1.4] tracking-[-0.2px] text-[#1c2b33]/85">
+          <p className={styles.margoQuestion}>
             “{insight.margoQuestion}”
           </p>
         </div>

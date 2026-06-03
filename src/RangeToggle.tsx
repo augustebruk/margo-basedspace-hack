@@ -1,6 +1,8 @@
 import type { JSX } from "react";
 import { motion } from "motion/react";
 import type { GraphRange } from "./graphModel";
+import { cx } from "./cx";
+import styles from "./RangeToggle.module.css";
 
 /* RangeToggle — a small segmented control used above the atom graph so the
  * person can choose which span of their life to look at. The set of options is
@@ -31,7 +33,7 @@ export const RangeToggle = <T extends string = GraphRange>({
   onChange,
   options = DEFAULT_OPTIONS as RangeOption<T>[],
 }: RangeToggleProps<T>): JSX.Element => (
-  <div className="inline-flex items-center gap-0.5 rounded-full bg-white/70 p-0.5 shadow-[0_4px_14px_rgba(28,43,51,0.06)] backdrop-blur-sm">
+  <div className={styles.root}>
     {options.map((opt) => {
       const active = opt.id === value;
       return (
@@ -39,21 +41,20 @@ export const RangeToggle = <T extends string = GraphRange>({
           key={opt.id}
           type="button"
           onClick={() => onChange(opt.id)}
-          className="relative box-border cursor-pointer rounded-full px-3 py-1.5 [font-family:'Inter',Helvetica] text-[12px] font-semibold tracking-[-0.1px] transition-colors"
-          style={{ color: active ? "#ffffff" : "rgba(28,43,51,0.5)" }}
+          className={cx(
+            "btnReset",
+            styles.option,
+            active && styles.optionActive,
+          )}
         >
           {active && (
             <motion.span
               layoutId="range-toggle-pill"
-              className="absolute inset-0 rounded-full"
-              style={{
-                background:
-                  "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 100%)",
-              }}
+              className={styles.pill}
               transition={{ type: "spring", stiffness: 420, damping: 34 }}
             />
           )}
-          <span className="relative z-10">{opt.label}</span>
+          <span className={styles.optionLabel}>{opt.label}</span>
         </button>
       );
     })}

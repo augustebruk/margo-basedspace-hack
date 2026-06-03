@@ -1,6 +1,8 @@
 import { useEffect, useState, type JSX } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
 import type { Practice } from "./usePractice";
+import { cx } from "./cx";
+import styles from "./PracticeView.module.css";
 
 /* ============================================================================
  * PracticeView — a personalized, evidence-based daily practice.
@@ -74,17 +76,11 @@ const StepLabel = ({
   step: number;
   children: string;
 }): JSX.Element => (
-  <div className="flex items-center gap-2">
-    <span
-      aria-hidden="true"
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-      style={{ background: "linear-gradient(135deg,#c7a6f5,#f7a8c5)" }}
-    >
+  <div className={styles.stepLabel}>
+    <span aria-hidden="true" className={styles.stepBadge}>
       {step}
     </span>
-    <p className="[font-family:'Inter',Helvetica] text-[14px] font-semibold leading-[20px] text-[#1c2b33]">
-      {children}
-    </p>
+    <p className={styles.stepLabelText}>{children}</p>
   </div>
 );
 
@@ -102,30 +98,22 @@ const ChoiceTile = ({
     type="button"
     onClick={onSelect}
     aria-pressed={active}
-    className={
-      "all-[unset] box-border flex w-full cursor-pointer items-start gap-3 rounded-[16px] border px-4 py-3 text-left transition-colors " +
-      (active
-        ? "border-[#c7a6f5] bg-[rgba(244,231,255,0.6)]"
-        : "border-[#e7e2ef] bg-white/70 hover:bg-white")
-    }
+    className={cx(
+      "btnReset",
+      styles.choiceTile,
+      active ? styles.choiceTileActive : styles.choiceTileInactive,
+    )}
   >
     <span
       aria-hidden="true"
-      className={
-        "mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-colors " +
-        (active ? "border-transparent" : "border-[#1c2b33]/20")
-      }
-      style={
-        active
-          ? { background: "linear-gradient(135deg,#c7a6f5,#f7a8c5)" }
-          : undefined
-      }
+      className={cx(
+        styles.choiceRadio,
+        active ? styles.choiceRadioActive : styles.choiceRadioInactive,
+      )}
     >
-      {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+      {active && <span className={styles.choiceRadioDot} />}
     </span>
-    <span className="text-left [font-family:'Inter',Helvetica] text-[14px] font-normal leading-[20px] text-[#1c2b33]/85">
-      {label}
-    </span>
+    <span className={styles.choiceLabel}>{label}</span>
   </button>
 );
 
@@ -196,53 +184,37 @@ export const PracticeView = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative flex h-full w-full flex-col"
+      className={styles.root}
     >
       {/* Same washed-out pastel orb background as the Reflection screen. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
-      />
+      <div aria-hidden="true" className={styles.bg} />
 
-      {/* Scrollable area: header + steps (min-h-0 so the footer stays pinned). */}
+      {/* Header — title + Margo's intro + the (non-clinical) approach pill. */}
+      <div className={styles.header}>
+        <p className={styles.eyebrow}>Tonight's practice</p>
+        <h1 className={styles.title}>{practice.title}</h1>
+        <p className={styles.intro}>{practice.intro}</p>
+        {practice.approachLabel && (
+          <span className={styles.approachPill}>
+            <span aria-hidden="true" className={styles.approachDot} />
+            <span className={styles.approachLabel}>
+              {practice.approachLabel}
+            </span>
+          </span>
+        )}
+      </div>
+
+      {/* Scrollable steps (min-h-0 so the footer stays pinned). */}
       <motion.div
         variants={container}
         initial="hidden"
         animate="show"
-        className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-12"
+        className={styles.steps}
       >
-        {/* Header — title + Margo's intro + the (non-clinical) approach pill. */}
-        <div className="pb-3">
-          <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.4px] text-[#1c2b33]/40">
-            Tonight's practice
-          </p>
-          <h1 className="mt-1 [font-family:'Inter',Helvetica] text-[24px] font-medium leading-[1.25] tracking-[-0.4px] text-[#1c2b33]">
-            {practice.title}
-          </h1>
-          <p className="mt-2 [font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/65">
-            {practice.intro}
-          </p>
-          {practice.approachLabel && (
-            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1.5 shadow-[0_4px_14px_rgba(28,43,51,0.05)]">
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
-              />
-              <span className="[font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/70">
-                {practice.approachLabel}
-              </span>
-            </span>
-          )}
-        </div>
-
         {/* Step 1 — focus (single choice) */}
-        <motion.section variants={item} className="flex flex-col gap-2.5">
+        <motion.section variants={item} className={styles.section}>
           <StepLabel step={1}>{practice.focusPrompt}</StepLabel>
-          <div className="flex flex-col gap-2">
+          <div className={styles.choiceList}>
             {practice.options.map((opt) => (
               <ChoiceTile
                 key={opt}
@@ -255,17 +227,15 @@ export const PracticeView = ({
         </motion.section>
 
         {/* Step 2 — guided written reflection + "write more about X" chips */}
-        <motion.section variants={item} className="mt-6 flex flex-col gap-2.5">
+        <motion.section variants={item} className={styles.sectionSpaced}>
           <StepLabel step={2}>{practice.deepenLabel}</StepLabel>
-          <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/60">
-            {practice.deepenPrompt}
-          </p>
+          <p className={styles.deepenPrompt}>{practice.deepenPrompt}</p>
           <textarea
             value={reflection}
             onChange={(e) => setReflection(e.target.value)}
             rows={5}
             placeholder="Take your time. There's no wrong answer here."
-            className="w-full resize-none rounded-[16px] border border-[#e7e2ef] bg-white/80 p-3.5 [font-family:'Inter',Helvetica] text-[14px] leading-[21px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+            className={styles.textarea}
           />
           {/* Each opened followup gets its own dedicated labeled text input. */}
           <AnimatePresence initial={false}>
@@ -276,11 +246,9 @@ export const PracticeView = ({
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.3, ease: EASE }}
-                className="flex flex-col gap-1.5 overflow-hidden"
+                className={styles.followup}
               >
-                <p className="[font-family:'Inter',Helvetica] text-[13px] font-medium leading-[18px] text-[#1c2b33]/70">
-                  {f}
-                </p>
+                <p className={styles.followupLabel}>{f}</p>
                 <textarea
                   value={followupAnswers[f] ?? ""}
                   onChange={(e) =>
@@ -294,18 +262,18 @@ export const PracticeView = ({
                   placeholder={followupPlaceholder(
                     practice.deepenFollowups.indexOf(f),
                   )}
-                  className="w-full resize-none rounded-[16px] border border-[#e7e2ef] bg-white/80 p-3.5 [font-family:'Inter',Helvetica] text-[14px] leading-[21px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+                  className={styles.textarea}
                 />
               </motion.div>
             ))}
           </AnimatePresence>
 
           {practice.deepenFollowups.some((f) => !openFollowups.includes(f)) && (
-            <div className="flex flex-col items-start gap-1.5">
-              <p className="text-left [font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/45">
+            <div className={styles.followupSuggest}>
+              <p className={styles.followupSuggestLabel}>
                 Stuck? Write a little more about…
               </p>
-              <div className="flex flex-wrap justify-start gap-2">
+              <div className={styles.chipRow}>
                 {practice.deepenFollowups
                   .filter((f) => !openFollowups.includes(f))
                   .map((f) => (
@@ -313,12 +281,9 @@ export const PracticeView = ({
                       key={f}
                       type="button"
                       onClick={() => handleAddFollowup(f)}
-                      className="all-[unset] box-border flex cursor-pointer items-center gap-1.5 rounded-full border border-[#e7e2ef] bg-white/70 px-3 py-1.5 [font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/70 transition-colors hover:bg-white"
+                      className={cx("btnReset", styles.chip)}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="text-[14px] leading-none text-[#c7a6f5]"
-                      >
+                      <span aria-hidden="true" className={styles.chipPlus}>
                         +
                       </span>
                       {f}
@@ -330,34 +295,28 @@ export const PracticeView = ({
         </motion.section>
 
         {/* Step 3 — one tiny in-the-moment skill */}
-        <motion.section variants={item} className="mt-6 flex flex-col gap-2.5">
+        <motion.section variants={item} className={styles.sectionSpaced}>
           <StepLabel step={3}>Try this, right now</StepLabel>
           <button
             type="button"
             onClick={() => setTriedSkill((v) => !v)}
             aria-pressed={triedSkill}
-            className={
-              "all-[unset] box-border flex w-full cursor-pointer flex-col gap-2 rounded-[18px] border p-4 transition-colors " +
-              (triedSkill
-                ? "border-[#c7a6f5] bg-[rgba(244,231,255,0.55)]"
-                : "border-[#e7e2ef] bg-white/80 hover:bg-white")
-            }
+            className={cx(
+              "btnReset",
+              styles.skillCard,
+              triedSkill ? styles.skillCardActive : styles.skillCardInactive,
+            )}
           >
-            <div className="flex items-center justify-between gap-3">
-              <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold leading-[20px] text-[#1c2b33]">
-                {practice.skill.name}
-              </span>
+            <div className={styles.skillHead}>
+              <span className={styles.skillName}>{practice.skill.name}</span>
               <span
                 aria-hidden="true"
-                className={
-                  "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border transition-colors " +
-                  (triedSkill ? "border-transparent" : "border-[#1c2b33]/20")
-                }
-                style={
+                className={cx(
+                  styles.skillCheck,
                   triedSkill
-                    ? { background: "linear-gradient(135deg,#c7a6f5,#f7a8c5)" }
-                    : undefined
-                }
+                    ? styles.skillCheckActive
+                    : styles.skillCheckInactive,
+                )}
               >
                 {triedSkill && (
                   <svg
@@ -375,22 +334,22 @@ export const PracticeView = ({
                 )}
               </span>
             </div>
-            <p className="text-left [font-family:'Inter',Helvetica] text-[13px] font-normal leading-[20px] text-[#1c2b33]/65">
+            <p className={styles.skillInstruction}>
               {practice.skill.instruction}
             </p>
-            <span className="[font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/45">
+            <span className={styles.skillHint}>
               {triedSkill ? "Nice — you did it." : "Tap when you've tried it"}
             </span>
           </button>
         </motion.section>
 
         {/* Step 4 — one small committed action */}
-        <motion.section variants={item} className="mt-6 flex flex-col gap-2.5">
+        <motion.section variants={item} className={styles.sectionSpaced}>
           <StepLabel step={4}>One small thing before tomorrow</StepLabel>
-          <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/60">
+          <p className={styles.deepenPrompt}>
             Pick one tiny step you're actually willing to take. Small counts.
           </p>
-          <div className="flex flex-col gap-2">
+          <div className={styles.choiceList}>
             {practice.actions.map((a) => {
               const active = !customAction.trim() && selectedAction === a;
               return (
@@ -414,23 +373,20 @@ export const PracticeView = ({
               if (e.target.value.trim()) setSelectedAction(null);
             }}
             placeholder="Or write your own…"
-            className="w-full rounded-[16px] border border-[#e7e2ef] bg-white/80 px-3.5 py-3 [font-family:'Inter',Helvetica] text-[14px] leading-[20px] text-[#1c2b33] placeholder:text-[#1c2b33]/35 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+            className={styles.actionInput}
           />
         </motion.section>
 
         {/* Margo's closing line. */}
         {practice.closingLine && (
-          <motion.p
-            variants={item}
-            className="mt-7 text-center [font-family:'Inter',Helvetica] text-[14px] font-normal italic leading-[21px] text-[#1c2b33]/55"
-          >
+          <motion.p variants={item} className={styles.closingLine}>
             {practice.closingLine}
           </motion.p>
         )}
       </motion.div>
 
       {/* Footer — primary "Save practice" pill + secondary "Back to home". */}
-      <div className="sticky bottom-0 flex flex-col items-center gap-2.5 bg-gradient-to-t from-[#fdf1f3] via-[#fdf1f3] to-transparent px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className={styles.footer}>
         <AnimatePresence>
           {saved && (
             <motion.p
@@ -439,7 +395,7 @@ export const PracticeView = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="text-center [font-family:'Inter',Helvetica] text-[13px] font-medium text-[#1c2b33]/60"
+              className={styles.savedNote}
             >
               Saved — we'll remind you tonight.
             </motion.p>
@@ -449,37 +405,16 @@ export const PracticeView = ({
         <button
           type="button"
           onClick={handleSave}
-          className="all-[unset] box-border inline-flex h-12 cursor-pointer items-center gap-2 rounded-full px-6 text-white shadow-[0_14px_34px_rgba(199,166,245,0.45)] transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5]"
-          style={{
-            background:
-              "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
-          }}
+          className={cx("btnReset", styles.saveBtn)}
           aria-label="Save Practice"
         >
-          <svg
-            aria-hidden="true"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
-          <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px]">
-            Save Practice
-          </span>
+          <span className={styles.saveBtnLabel}>Save Practice</span>
         </button>
 
         <button
           type="button"
           onClick={onBackHome}
-          className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+          className={cx("btnReset", "focusRing", styles.backBtn)}
           aria-label="Return Home"
         >
           Return Home

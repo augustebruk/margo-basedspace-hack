@@ -1,0 +1,626 @@
+/* ============================================================================
+ * Onboarding — co-located CSS Module. Translated 1:1 from the original inline
+ * Tailwind utilities + static inline styles. Class names are grouped by the
+ * sub-step / shared component they belong to.
+ * ==========================================================================*/
+
+/* -------------------------------------------------------------------------- */
+/* Root container + shared chrome (background wash, logo).                    */
+/* -------------------------------------------------------------------------- */
+.root {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bgWash {
+  position: absolute;
+  inset: 0;
+  z-index: -10;
+  background: var(--grad-screen);
+}
+
+.logo {
+  position: absolute;
+  top: 1.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared: TapPrompt (tap-to-continue pill).                                  */
+/* -------------------------------------------------------------------------- */
+.tapPrompt {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.625rem 1.25rem;
+  box-shadow: 0 8px 24px rgba(28, 43, 51, 0.08);
+}
+
+.tapPromptLabel {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  color: rgba(28, 43, 51, 0.7);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared: KeyboardToggle ("Type instead" pill).                             */
+/* -------------------------------------------------------------------------- */
+.keyboardToggle {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.375rem 0.875rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.45);
+  transition: color 0.15s ease;
+}
+
+.keyboardToggle:hover {
+  color: rgba(28, 43, 51, 0.7);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared: GhostIconButton (pencil edit, no circle).                          */
+/* -------------------------------------------------------------------------- */
+.ghostIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  padding: 0.375rem;
+  color: rgba(28, 43, 51, 0.35);
+  transition: color 0.15s ease;
+}
+
+.ghostIconButton:hover {
+  color: rgba(28, 43, 51, 0.6);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared: KeyboardInput (inline text entry).                                 */
+/* -------------------------------------------------------------------------- */
+.kbdRoot {
+  display: flex;
+  width: 100%;
+  max-width: 320px;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.kbdField {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(28, 43, 51, 0.1);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.75rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(28, 43, 51, 0.06);
+}
+
+.kbdField::placeholder {
+  color: rgba(28, 43, 51, 0.3);
+}
+
+.kbdField:focus {
+  border-color: rgba(199, 166, 245, 0.6);
+  outline: none;
+}
+
+.kbdFieldTextarea {
+  resize: none;
+  line-height: 22px;
+}
+
+.kbdFieldInput {
+  text-align: center;
+}
+
+.kbdActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kbdCancel {
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.45);
+}
+
+.kbdSubmit {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.5rem 1.25rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(199, 166, 245, 0.4);
+  background: var(--grad-cta);
+}
+
+.kbdSubmit:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* The submit button's focus ring is white (not ink), so it's written here. */
+.kbdSubmit:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 1 — EntranceStep.                                                     */
+/* -------------------------------------------------------------------------- */
+.entranceRoot {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.entranceTextBlock {
+  display: flex;
+  min-height: 88px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  text-align: center;
+}
+
+.entrancePrompt {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+  color: rgba(28, 43, 51, 0.5);
+}
+
+.entranceLinePrimary {
+  font-family: var(--font-sans);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+
+.entranceLineSecondary {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+  color: rgba(28, 43, 51, 0.65);
+}
+
+/* -------------------------------------------------------------------------- */
+/* NameWaves — concentric ripple rings.                                       */
+/* -------------------------------------------------------------------------- */
+.nameWaves {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nameWave {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1px solid rgba(199, 166, 245, 0.4);
+  width: 180px;
+  height: 180px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 2 — NameStep.                                                         */
+/* -------------------------------------------------------------------------- */
+.nameRoot {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.namePrompt {
+  max-width: 300px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+}
+
+.nameOrbOuter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nameOrbInner {
+  position: relative;
+  display: flex;
+  height: 180px;
+  width: 180px;
+  align-items: center;
+  justify-content: center;
+}
+
+.nameCaptured {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.nameCapturedText {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+
+.namePencilSlot {
+  margin-right: -1.5rem;
+}
+
+.nameControls {
+  display: flex;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nameVoiceBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nameError {
+  max-width: 300px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: #d4576a;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 3 — FirstYapStep.                                                     */
+/* -------------------------------------------------------------------------- */
+.yapRoot {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  padding-top: 118px;
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
+}
+
+.yapPromptWrap {
+  display: flex;
+  max-width: 320px;
+  align-items: flex-start;
+  justify-content: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.yapPrompt {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+}
+
+.yapOrbBlock {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.yapOrbWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yapBottom {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.yapVoiceBlock {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.yapTranscriptWrap {
+  display: flex;
+  min-height: 64px;
+  max-height: 230px;
+  width: 100%;
+  align-items: flex-end;
+  justify-content: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.yapTurnGroup {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.yapTurnLabel {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-size: 12px;
+  color: rgba(28, 43, 51, 0.4);
+}
+
+.yapTranscript {
+  width: 100%;
+  max-width: 300px;
+  max-height: 190px;
+  overflow-y: auto;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 22px;
+  color: rgba(28, 43, 51, 0.55);
+}
+
+.yapPromptRow {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.yapError {
+  max-width: 300px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: #d4576a;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 4 — MirrorStep.                                                       */
+/* -------------------------------------------------------------------------- */
+.mirrorRoot {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  padding-top: 104px;
+  padding-bottom: 2rem;
+}
+
+.mirrorScroll {
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow-y: auto;
+}
+
+.mirrorLines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.mirrorLine {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.2px;
+  color: rgba(28, 43, 51, 0.85);
+}
+
+.mirrorHighlight {
+  border-radius: 6px;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.mirrorCardWrap {
+  margin-top: 2rem;
+}
+
+.mirrorFooter {
+  display: flex;
+  justify-content: center;
+  padding-top: 1rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 5 — InvitationStep.                                                   */
+/* -------------------------------------------------------------------------- */
+.invitationRoot {
+  position: relative;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  padding-top: 104px;
+  padding-bottom: 2.25rem;
+}
+
+.invitationBody {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.invitationLead {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: -0.2px;
+  color: rgba(28, 43, 51, 0.85);
+}
+
+.invitationGraphCard {
+  overflow: hidden;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.5rem;
+  box-shadow: 0 12px 36px rgba(28, 43, 51, 0.07);
+}
+
+.invitationFooter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+
+.invitationCta {
+  box-sizing: border-box;
+  display: flex;
+  height: 3.5rem;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  box-shadow: 0 14px 34px rgba(199, 166, 245, 0.45);
+  background: var(--grad-cta);
+}
+
+/* The CTA's focus ring is white (not ink), so it's written here. */
+.invitationCta:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.invitationCtaLabel {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: #fff;
+}
+
+.invitationCtaSub {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.invitationSecondary {
+  border-radius: 0.125rem;
+  padding: 0.25rem 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(28, 43, 51, 0.5);
+}
+
+.invitationLegal {
+  max-width: 320px;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 13px;
+  text-align: center;
+  letter-spacing: -0.05px;
+  line-height: 18px;
+}
+
+.invitationLegalMuted {
+  color: rgba(28, 43, 51, 0.55);
+}
+
+.invitationLegalLink {
+  color: #c7a6f5;
+  border-radius: 0.125rem;
+}
+
+/* The legal links' focus ring is #c7a6f5 (not ink), so it's written here. */
+.invitationLegalLink:focus-visible {
+  outline: 2px solid #c7a6f5;
+  outline-offset: 2px;
+}

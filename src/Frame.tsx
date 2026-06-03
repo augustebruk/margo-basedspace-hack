@@ -17,6 +17,8 @@ import { EntryDetailView } from "./EntryDetailView";
 import { InsightsView } from "./InsightsView";
 import { BottomNav, type MenuAction } from "./BottomNav";
 import { WriteEntryView } from "./WriteEntryView";
+import { cx } from "./cx";
+import styles from "./Frame.module.css";
 
 // The journaling entry always opens with this fixed prompt. The remaining
 // prompts are generated live by the AI from the conversation (see `useFollowup`).
@@ -37,6 +39,17 @@ type Phase =
 // Minimum time the white "preparing" loading screen shows, so the transition
 // into the reflection feels calm even if generation resolves quickly.
 const LOADING_MS = 1900;
+
+// Fixed design dimensions of the phone frame, in CSS pixels. The frame is
+// always laid out at exactly this size and only ever scaled DOWN (never up)
+// to fit smaller viewports — see the frame-scale effect below.
+const FRAME_W = 390;
+const FRAME_H = 844;
+
+// Minimum gap (in CSS pixels) kept between the frame and every viewport edge
+// when shown in a desktop/laptop browser, so the "phone" never touches the
+// window edges. The frame is scaled down if needed to preserve this margin.
+const FRAME_MARGIN = 16;
 
 export const Frame = (): JSX.Element => {
   // Persisted onboarding state (name + completion flag in localStorage).
@@ -84,6 +97,66 @@ export const Frame = (): JSX.Element => {
   const currentEntryId = useRef<string | null>(null);
   // When the current session started, to compute its duration on finish.
   const entryStartedAt = useRef<number>(0);
+
+  // --- Fixed-size phone frame ------------------------------------------
+  // The whole app is laid out in a fixed design coordinate space of
+  // FRAME_W × FRAME_H. We never grow past that (so on a wide desktop the
+  // "phone" stays the same size and never gets blown up); when the viewport
+  // is smaller than the frame — e.g. an actual iPhone 13 browser viewport —
+  // we uniformly scale the entire frame down with a CSS transform so the
+  // layout/proportions stay pixel-identical and nothing reflows. This avoids
+  // the old behavior where the frame stretched to the device and broke the
+  // layout on real devices.
+  const [frameScale, setFrameScale] = useState(1);
+  // True when we're on an actual phone (touch device whose viewport is too
+  // small to show the framed "phone" with margins). On a phone we go
+  // edge-to-edge: no grey margin, no rounded corners, no drop shadow — the app
+  // should fill the device screen exactly like a native app. On a desktop /
+  // laptop browser we keep the centered phone-shaped frame with margins.
+  const [isPhone, setIsPhone] = useState(false);
+  useEffect(() => {
+    const computeScale = () => {
+      // A real phone: a coarse (touch) pointer whose viewport can't fit the
+      // full-size frame plus its desktop margins. Desktops with touchscreens
+      // stay in "framed" mode because their viewport is large enough.
+      const coarsePointer = window.matchMedia(
+        "(pointer: coarse)",
+      ).matches;
+      const tooSmallForFrame =
+        window.innerWidth < FRAME_W + FRAME_MARGIN * 2 ||
+        window.innerHeight < FRAME_H + FRAME_MARGIN * 2;
+      const phone = coarsePointer && tooSmallForFrame;
+      setIsPhone(phone);
+
+      if (phone) {
+        // Fill the entire viewport edge-to-edge with NO visible margin. We use
+        // "cover" (Math.max): the fixed design space is scaled up until it
+        // covers both viewport dimensions, so there's never a grey bar on any
+        // edge. Any slight overflow on the looser axis (e.g. a short phone like
+        // the iPhone SE) is clipped by the frame's `overflow-hidden`.
+        const scale = Math.max(
+          window.innerWidth / FRAME_W,
+          window.innerHeight / FRAME_H,
+        );
+        setFrameScale(scale);
+        return;
+      }
+
+      // Desktop/laptop: reserve at least FRAME_MARGIN on every edge so the
+      // frame never butts up against the viewport edges, and never scale up.
+      const availW = window.innerWidth - FRAME_MARGIN * 2;
+      const availH = window.innerHeight - FRAME_MARGIN * 2;
+      const scale = Math.min(1, availW / FRAME_W, availH / FRAME_H);
+      setFrameScale(scale);
+    };
+    computeScale();
+    window.addEventListener("resize", computeScale);
+    window.addEventListener("orientationchange", computeScale);
+    return () => {
+      window.removeEventListener("resize", computeScale);
+      window.removeEventListener("orientationchange", computeScale);
+    };
+  }, []);
 
   const started = bulbState !== "idle";
   const aiSpeaking = bulbState === "aiSpeaking";
@@ -241,6 +314,16 @@ export const Frame = (): JSX.Element => {
     setHasEverSpoken(false);
     setBurstKey((k) => k + 1);
     aiSay(OPENING_QUESTION);
+
+    // Activate the mic right away so the user can start speaking without a
+    // second tap. Request permission synchronously inside this click handler
+    // (Safari/iOS only prompt when getUserMedia is reached directly from a
+    // user gesture; the later start() runs too late to trigger the prompt).
+    void requestMicPermission();
+    setIsTyping(false);
+    setIsRecording(true);
+    setHasEverSpoken(true);
+    listen();
   };
 
   const handleMicToggle = () => {
@@ -513,8 +596,29 @@ export const Frame = (): JSX.Element => {
   }, [personTranscript, personSpeaking, isTyping]);
 
   return (
-    <main className="flex min-h-dvh w-full items-center justify-center overflow-auto bg-white p-0 sm:bg-[#f3f3f3] sm:p-4">
-      <section className="relative flex h-dvh w-full shrink-0 flex-col overflow-hidden rounded-none bg-white shadow-none sm:h-[844px] sm:max-h-[calc(100dvh-2rem)] sm:w-[390px] sm:rounded-[44px] sm:shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
+    <main className={cx(styles.main, isPhone && styles.mainPhone)}>
+      {/* Scaling wrapper: reserves the on-screen (scaled) footprint of the
+          frame so it stays centered, while the frame itself is transformed.
+          On desktop/laptop, `p-4` (16px) on <main> guarantees a uniform
+          minimum margin on every edge and the frame keeps its phone-shaped
+          look (rounded corners + shadow). On a real phone we drop the padding,
+          corners and shadow so the app fills the device edge-to-edge. */}
+      <div
+        style={{
+          width: FRAME_W * frameScale,
+          height: FRAME_H * frameScale,
+        }}
+        className={styles.scaleWrap}
+      >
+        <section
+          style={{
+            width: FRAME_W,
+            height: FRAME_H,
+            transform: `scale(${frameScale})`,
+            transformOrigin: "top left",
+          }}
+          className={cx(styles.frame, isPhone && styles.framePhone)}
+        >
         <AnimatePresence mode="wait">
           {phase === "onboarding" ? (
             <Onboarding
@@ -540,12 +644,12 @@ export const Frame = (): JSX.Element => {
               // the voice bar on the next screen.
               exit={{ opacity: 0, y: -60, scale: 0.92 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="relative flex h-full w-full flex-col items-center px-6 pt-[88px] pb-[max(40px,env(safe-area-inset-bottom))] sm:pt-[118px]"
+              className={styles.entry}
             >
               {/* Brand logo, anchored at the top of the entry screen. */}
               <MargoLogo
                 onClick={handleLogoClick}
-                className="absolute top-7 left-1/2 -translate-x-1/2"
+                className={styles.logo}
               />
 
               {/* Title fades out and unmounts once the entry starts. */}
@@ -556,15 +660,15 @@ export const Frame = (): JSX.Element => {
                     initial={false}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="flex flex-col items-center gap-2"
+                    className={styles.titleBlock}
                   >
                     <h1
                       id="activate-agent-title"
-                      className="relative w-fit [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[30px] text-center tracking-[-0.5px] leading-[1.2] whitespace-nowrap pb-px"
+                      className={styles.title}
                     >
                       {name ? `Welcome back, ${name}` : "Welcome"}
                     </h1>
-                    <p className="max-w-[280px] text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[21px] text-[#1c2b33]/50">
+                    <p className={styles.subtitle}>
                       {name
                         ? "Ready to think out loud?"
                         : "Your space to think out loud."}
@@ -587,22 +691,16 @@ export const Frame = (): JSX.Element => {
                   paddingBottom: started ? (hideOrb ? 8 : promptToInputGap) : 0,
                 }}
                 transition={{ type: "spring", stiffness: 120, damping: 22 }}
-                className={`flex w-full flex-1 flex-col items-center ${
-                  // While the orb is visible we pin the stack to the bottom of
-                  // the centered area (orb above, prompt resting just over the
-                  // input). Once the orb hides there's no orb to anchor to, so
-                  // the prompt would otherwise stay pinned to the bottom with a
-                  // big empty void above where the orb used to be — instead lift
-                  // it to the top so the prompt reads near the logo and the
-                  // freed space sits below it (next to the growing input).
+                className={cx(
+                  styles.orbStack,
                   !started
-                    ? "justify-center"
+                    ? styles.orbStackIdle
                     : hideOrb
-                      ? "justify-start"
-                      : "justify-end"
-                }`}
+                      ? styles.orbStackHidden
+                      : styles.orbStackVisible,
+                )}
               >
-                <div className="flex w-full flex-col items-center">
+                <div className={styles.orbColumn}>
                   {/* The orb itself collapses (height → 0) and slides up out of
                       view when there's truly no room. Kept visible otherwise. */}
                   <motion.div
@@ -617,16 +715,16 @@ export const Frame = (): JSX.Element => {
                     // visible, keep overflow visible so its breathing scale and
                     // blurred glow halo aren't clipped at the top.
                     style={{ overflow: hideOrb ? "hidden" : "visible" }}
-                    className="flex w-full flex-col items-center"
+                    className={styles.orbColumn}
                   >
-                    <div className="relative flex flex-col items-center justify-center gap-7">
-                      <div className="relative flex items-center justify-center">
+                    <div className={styles.orbInner}>
+                      <div className={styles.orbHitArea}>
                         <AnimatePresence>
                           {burstKey > 0 && (
                             <motion.span
                               key={burstKey}
                               aria-hidden="true"
-                              className="absolute h-[232px] w-[232px] rounded-full bg-[linear-gradient(135deg,rgba(244,231,255,1)_0%,rgba(253,221,222,1)_100%)] blur-xl"
+                              className={styles.burst}
                               initial={{ opacity: 0.6, scale: 1 }}
                               animate={{ opacity: 0, scale: 1.7 }}
                               transition={{ duration: 0.7, ease: "easeOut" }}
@@ -642,7 +740,7 @@ export const Frame = (): JSX.Element => {
                             type="button"
                             onClick={handleStartEntry}
                             aria-label="Tap To Begin"
-                            className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
+                            className={cx("btnReset", styles.orbButton)}
                           >
                             <BulbAvatar state={bulbState} />
                           </button>
@@ -652,7 +750,7 @@ export const Frame = (): JSX.Element => {
                             onClick={handleMicToggle}
                             aria-label={isRecording ? "Tap to pause" : "Tap to speak"}
                             aria-pressed={isRecording}
-                            className="all-[unset] box-border cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1c2b33]"
+                            className={cx("btnReset", styles.orbButton)}
                           >
                             <BulbAvatar state={bulbState} />
                           </button>
@@ -674,7 +772,7 @@ export const Frame = (): JSX.Element => {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
                             transition={{ duration: 0.4, ease: "easeOut" }}
-                            className="pointer-events-none [font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40"
+                            className={styles.tapHint}
                           >
                             Tap To Speak
                           </motion.span>
@@ -691,7 +789,7 @@ export const Frame = (): JSX.Element => {
                       the orb hides. */}
                   <motion.div
                     aria-hidden="true"
-                    className="w-full shrink-0"
+                    className={styles.spacer}
                     // When the orb hides, the prompt jumps to the top of the
                     // stack right under the logo — keep a small top gap so it
                     // doesn't crowd the logo. Otherwise use the breathing gap
@@ -712,7 +810,7 @@ export const Frame = (): JSX.Element => {
                         }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.5, ease: "easeOut" }}
-                        className="max-w-[320px] px-2 text-center [font-family:'Inter',Helvetica] font-medium text-[#1c2b33] text-[24px] leading-[1.3] tracking-[-0.4px]"
+                        className={styles.prompt}
                       >
                         {currentQuestion}
                       </motion.p>
@@ -726,7 +824,7 @@ export const Frame = (): JSX.Element => {
                   controls (mic / finish / next) always stay on screen — the
                   input area above caps and scrolls internally instead of
                   pushing the controls down out of view. */}
-              <div className="flex w-full shrink-0 flex-col items-center">
+              <div className={styles.bottomBlock}>
                 <AnimatePresence mode="wait">
                   {started && (
                     <motion.div
@@ -734,9 +832,9 @@ export const Frame = (): JSX.Element => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
-                      className="flex w-full flex-col items-center gap-7"
+                      className={styles.live}
                     >
-                      <div className="flex max-h-[230px] min-h-[64px] w-full items-end justify-center px-2">
+                      <div className={styles.transcriptArea}>
                         <AnimatePresence mode="wait">
                           {personSpeaking && !isTyping && (
                             <motion.div
@@ -745,20 +843,20 @@ export const Frame = (): JSX.Element => {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: 8 }}
                               transition={{ duration: 0.35, ease: "easeOut" }}
-                              className="flex w-full flex-col items-center gap-2"
+                              className={styles.turnGroup}
                             >
-                              <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
+                              <span className={styles.turnLabel}>
                                 Your turn
                               </span>
                               <p
                                 ref={transcriptScrollRef}
-                                className="w-full max-w-[300px] max-h-[190px] overflow-y-auto text-center [font-family:'Inter',Helvetica] font-normal text-[15px] leading-[22px] text-[#1c2b33]/55"
+                                className={styles.transcript}
                               >
                                 {personTranscript ||
                                   (isRecording ? "Listening…" : "Tap The Mic Or Keyboard To Begin")}
                               </p>
                               {scribeError && (
-                                <p className="max-w-[300px] text-center [font-family:'Inter',Helvetica] font-normal text-[13px] leading-[18px] text-[#d4576a]">
+                                <p className={styles.scribeError}>
                                   {scribeError}
                                 </p>
                               )}
@@ -771,9 +869,9 @@ export const Frame = (): JSX.Element => {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: 8 }}
                               transition={{ duration: 0.3, ease: "easeOut" }}
-                              className="flex w-full flex-col items-center gap-2"
+                              className={styles.turnGroup}
                             >
-                              <span className="[font-family:'Inter',Helvetica] font-medium uppercase tracking-[1.5px] text-[12px] text-[#1c2b33]/40">
+                              <span className={styles.turnLabel}>
                                 Your turn
                               </span>
                               <textarea
@@ -783,7 +881,7 @@ export const Frame = (): JSX.Element => {
                                 onChange={(e) => setPersonTranscript(e.target.value)}
                                 placeholder="Type to add to your entry…"
                                 rows={2}
-                                className="w-full max-w-[300px] resize-none overflow-y-auto rounded-2xl border border-[rgba(244,231,255,0.9)] bg-white/70 px-4 py-3 text-center [font-family:'Inter',Helvetica] text-[15px] font-normal leading-[22px] text-[#1c2b33] shadow-[0_6px_16px_rgba(28,43,51,0.06)] placeholder:text-[#1c2b33]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b6a0e0] min-h-[68px] max-h-[190px]"
+                                className={styles.textarea}
                               />
                             </motion.div>
                           )}
@@ -813,20 +911,20 @@ export const Frame = (): JSX.Element => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
-              className="flex h-full w-full flex-col items-center justify-center gap-6 bg-white px-8 text-center"
+              className={styles.loading}
             >
               {/* Animated loading icon — a soft pastel spinner. */}
               <motion.span
                 aria-hidden="true"
-                className="h-10 w-10 rounded-full border-[3px] border-[#ece3ff] border-t-[#c7a6f5]"
+                className={styles.spinner}
                 animate={{ rotate: 360 }}
                 transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
               />
-              <div className="flex flex-col gap-2">
-                <p className="[font-family:'Inter',Helvetica] text-[24px] font-medium tracking-[-0.4px] text-[#1c2b33]">
+              <div className={styles.loadingTextBlock}>
+                <p className={styles.loadingTitle}>
                   Wrapping up your entry…
                 </p>
-                <p className="[font-family:'Inter',Helvetica] text-[15px] font-normal text-[#1c2b33]/55">
+                <p className={styles.loadingSubtitle}>
                   Preparing your summary &amp; practice.
                 </p>
               </div>
@@ -904,7 +1002,7 @@ export const Frame = (): JSX.Element => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 16 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="pointer-events-none absolute inset-0 z-20 flex items-end justify-center px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+              className={styles.bottomNavWrap}
             >
               <BottomNav
                 onBack={handleNavBack}
@@ -916,6 +1014,7 @@ export const Frame = (): JSX.Element => {
           )}
         </AnimatePresence>
       </section>
+      </div>
     </main>
   );
 };

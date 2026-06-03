@@ -15,6 +15,8 @@ import type {
 } from "./graphModel";
 import { frequencyLabel, shareLabel } from "./graphModel";
 import type { GraphNodeType } from "./useReflection";
+import { cx } from "./cx";
+import styles from "./EntryGraph.module.css";
 
 /* ============================================================================
  * EntryGraph — a big, spacious, Obsidian-style "atom graph" of a person's life:
@@ -499,7 +501,7 @@ export const EntryGraph = ({
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full touch-none select-none overflow-hidden"
+      className={styles.canvas}
       style={{ height, cursor: "grab" }}
       onPointerDown={onCanvasPointerDown}
       onPointerMove={onPointerMove}
@@ -511,8 +513,8 @@ export const EntryGraph = ({
       {loading ? (
         <GraphLoading range={range} />
       ) : graph.nodes.length === 0 ? (
-        <div className="flex h-full w-full items-center justify-center px-10 text-center">
-          <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/45">
+        <div className={styles.emptyWrap}>
+          <p className={styles.emptyText}>
             Your map starts here. As you journal, the people, situations and
             feelings you mention will connect into a living picture of your
             {range === "week" ? " week" : " month"}.
@@ -521,7 +523,7 @@ export const EntryGraph = ({
       ) : (
         <>
           {/* Edges */}
-          <svg className="pointer-events-none absolute inset-0 h-full w-full">
+          <svg className={styles.edges}>
             {graph.links.map((l) => {
               const a = positions[l.sourceId];
               const b = positions[l.targetId];
@@ -582,7 +584,7 @@ export const EntryGraph = ({
             return (
               <div
                 key={node.id}
-                className="absolute flex items-center"
+                className={styles.node}
                 style={{
                   left: s.x,
                   top: s.y,
@@ -600,7 +602,7 @@ export const EntryGraph = ({
                   type="button"
                   aria-label={node.label}
                   onPointerDown={(e) => onNodePointerDown(e, node.id)}
-                  className="flex shrink-0 items-center justify-center rounded-full bg-transparent"
+                  className={styles.dotButton}
                   style={{
                     // Generous, invisible hit target so small dots are easy to
                     // tap; the visible coloured circle stays its true size.
@@ -610,7 +612,7 @@ export const EntryGraph = ({
                   }}
                 >
                   <span
-                    className="block rounded-full"
+                    className={styles.dot}
                     style={{
                       width: r * 2,
                       height: r * 2,
@@ -627,7 +629,7 @@ export const EntryGraph = ({
                   />
                 </button>
                 <span
-                  className="pointer-events-none max-w-[140px] truncate whitespace-nowrap [font-family:'Inter',Helvetica]"
+                  className={styles.nodeLabel}
                   style={{
                     // Pull the label back toward the visible dot: the button's
                     // invisible hit padding would otherwise push it away. 6px
@@ -653,26 +655,26 @@ export const EntryGraph = ({
               pill style, blur, shadow and 11px scale. */}
           <div
             onPointerDown={(e) => e.stopPropagation()}
-            className="absolute left-3 top-3 z-10 flex items-center overflow-hidden rounded-full bg-white/80 text-[#1c2b33]/60 shadow-[0_2px_8px_rgba(28,43,51,0.08)] backdrop-blur-sm"
+            className={styles.zoomControls}
           >
             <button
               type="button"
               aria-label="Zoom out"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => zoomBy(1 / 1.3)}
-              className="flex h-[38px] w-[44px] items-center justify-center text-[16px] font-medium leading-none transition hover:text-[#1c2b33]"
+              className={styles.zoomButton}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
                 <path d="M5 12h14" />
               </svg>
             </button>
-            <span className="h-4 w-px bg-[#1c2b33]/10" />
+            <span className={styles.zoomDivider} />
             <button
               type="button"
               aria-label="Zoom in"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => zoomBy(1.3)}
-              className="flex h-[38px] w-[44px] items-center justify-center text-[16px] font-medium leading-none transition hover:text-[#1c2b33]"
+              className={styles.zoomButton}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
                 <path d="M12 5v14M5 12h14" />
@@ -687,7 +689,7 @@ export const EntryGraph = ({
               onPointerDown={(e) => e.stopPropagation()}
               onClick={resetView}
               aria-label="Recenter"
-              className="absolute right-3 top-3 z-10 flex h-[38px] w-[38px] items-center justify-center rounded-full bg-white/80 text-[#1c2b33]/60 shadow-[0_2px_8px_rgba(28,43,51,0.08)] backdrop-blur-sm transition hover:text-[#1c2b33]"
+              className={styles.recenter}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
@@ -706,7 +708,7 @@ export const EntryGraph = ({
                 exit={{ opacity: 0, y: 24 }}
                 transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="absolute inset-x-3 bottom-3 z-20 rounded-[22px] border border-white/70 bg-white/90 p-4 shadow-[0_14px_40px_rgba(28,43,51,0.14)] backdrop-blur-md"
+                className={styles.insightSheet}
               >
                 <NodeInsight
                   node={selectedNode}
@@ -754,10 +756,10 @@ function GraphLoading({ range }: { range: GraphRange }): JSX.Element {
   const span = range === "month" ? "month" : range === "today" ? "day" : "week";
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-5">
-      <div className="relative" style={{ width: 220, height: 170 }}>
+    <div className={styles.loadingWrap}>
+      <div className={styles.loadingStage} style={{ width: 220, height: 170 }}>
         <svg
-          className="absolute inset-0"
+          className={styles.loadingSvg}
           width={220}
           height={170}
           viewBox="-110 -85 220 170"
@@ -787,7 +789,7 @@ function GraphLoading({ range }: { range: GraphRange }): JSX.Element {
         {nodes.map((n, i) => (
           <motion.div
             key={i}
-            className="absolute rounded-full"
+            className={styles.loadingDot}
             style={{
               left: 110 + n.x,
               top: 85 + n.y,
@@ -806,7 +808,7 @@ function GraphLoading({ range }: { range: GraphRange }): JSX.Element {
           />
         ))}
       </div>
-      <p className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/45">
+      <p className={styles.loadingText}>
         Weaving your {span} into a map…
       </p>
     </div>
@@ -833,32 +835,32 @@ function NodeInsight({
   const share = shareLabel(node.share, node.entryCount);
   const hot = node.newToday || node.touchedToday;
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
+    <div className={styles.insight}>
+      <div className={styles.insightHead}>
+        <div className={styles.insightHeadMain}>
+          <div className={styles.insightTypeRow}>
             <span
-              className="[font-family:'Inter',Helvetica] text-[11px] font-semibold uppercase tracking-[1px]"
+              className={styles.insightType}
               style={{ color: hot ? "#7c3aed" : "#1c2b33" }}
             >
               {TYPE_LABEL[node.type]}
             </span>
             {node.newToday && (
-              <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 [font-family:'Inter',Helvetica] text-[10px] font-semibold text-[#7c3aed]">
+              <span className={styles.insightBadge}>
                 New today
               </span>
             )}
             {!node.newToday && node.touchedToday && (
-              <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 [font-family:'Inter',Helvetica] text-[10px] font-semibold text-[#7c3aed]">
+              <span className={styles.insightBadge}>
                 Came up again today
               </span>
             )}
           </div>
-          <h3 className="[font-family:'Inter',Helvetica] text-[19px] font-semibold leading-[1.2] tracking-[-0.3px] text-[#1c2b33]">
+          <h3 className={styles.insightTitle}>
             {node.label}
           </h3>
           {(freq || share) && (
-            <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/45">
+            <p className={styles.insightMeta}>
               {[freq, share].filter(Boolean).join(" · ")}
             </p>
           )}
@@ -867,7 +869,7 @@ function NodeInsight({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="all-[unset] box-border flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#1c2b33]/40 transition hover:bg-black/5 hover:text-[#1c2b33]/70"
+          className={cx("btnReset", styles.insightClose)}
         >
           <svg
             width="16"
@@ -884,16 +886,13 @@ function NodeInsight({
       </div>
 
       {node.mentions.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <p className="[font-family:'Inter',Helvetica] text-[11px] font-medium uppercase tracking-[1px] text-[#1c2b33]/40">
+        <div className={styles.insightBlock}>
+          <p className={styles.insightLabel}>
             You said
           </p>
-          <div className="flex flex-col gap-1.5">
+          <div className={styles.mentionList}>
             {node.mentions.slice(0, 3).map((m, i) => (
-              <p
-                key={i}
-                className="rounded-[12px] bg-[rgba(244,231,255,0.45)] px-3 py-2 [font-family:'Inter',Helvetica] text-[13px] font-normal italic leading-[19px] text-[#1c2b33]/80"
-              >
+              <p key={i} className={styles.mention}>
                 “{m}”
               </p>
             ))}
@@ -902,18 +901,15 @@ function NodeInsight({
       )}
 
       {connections.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <p className="[font-family:'Inter',Helvetica] text-[11px] font-medium uppercase tracking-[1px] text-[#1c2b33]/40">
+        <div className={styles.insightBlock}>
+          <p className={styles.insightLabel}>
             Connects to
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className={styles.connList}>
             {connections.map((c, i) => (
-              <span
-                key={i}
-                className="inline-flex items-baseline gap-1 rounded-full border border-[#ece3ff] bg-white px-2.5 py-1 [font-family:'Inter',Helvetica] text-[12px] font-medium text-[#1c2b33]/75"
-              >
+              <span key={i} className={styles.connChip}>
                 {c.relation && (
-                  <span className="text-[#a07ee0]">{c.relation}</span>
+                  <span className={styles.connRelation}>{c.relation}</span>
                 )}
                 {c.label}
               </span>

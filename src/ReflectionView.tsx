@@ -12,6 +12,8 @@ import { RangeToggle } from "./RangeToggle";
 import { PatternTags } from "./PatternTags";
 import { buildAggregatedGraph } from "./graphModel";
 import type { Entry } from "./useEntries";
+import { cx } from "./cx";
+import styles from "./ReflectionView.module.css";
 
 /* ============================================================================
  * Types — shape the AI output into these props. Plug real model output in
@@ -65,7 +67,7 @@ const item: Variants = {
 };
 
 const SectionTitle = ({ children }: { children: string }): JSX.Element => (
-  <p className="[font-family:'Inter',Helvetica] text-[12px] font-medium uppercase tracking-[1.4px] text-[#1c2b33]/40">
+  <p className={styles.sectionTitle}>
     {children}
   </p>
 );
@@ -165,35 +167,28 @@ export const ReflectionView = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative flex h-full w-full flex-col"
+      className={styles.root}
     >
       {/* Washed-out, low-contrast version of the orb gradient as background. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "linear-gradient(160deg, #f6eeff 0%, #fdf1f3 48%, #fef6f1 100%)",
-        }}
-      />
+      <div aria-hidden="true" className={styles.bg} />
 
       {/* ---- Scrollable reflection content (min-h-0 so the footer stays) ---- */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-14 pb-6">
+      <div className={styles.scroll}>
         {/* Reframe — the spoken reflection, revealed sentence by sentence.
             While it's still being written, a gentle shimmer holds the space. */}
         {!hasSummary ? (
           mapLoading ? (
-            <div aria-live="polite" className="flex flex-col gap-3">
-              <span className="sr-only">Writing your reflection…</span>
+            <div aria-live="polite" className={styles.shimmerStack}>
+              <span className={styles.srOnly}>Writing your reflection…</span>
               <motion.div
                 aria-hidden="true"
-                className="h-[19px] w-[88%] rounded-full bg-[#1c2b33]/10"
+                className={cx(styles.shimmerBar, styles.shimmerBarWide)}
                 animate={{ opacity: [0.4, 0.85, 0.4] }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
               />
               <motion.div
                 aria-hidden="true"
-                className="h-[19px] w-[72%] rounded-full bg-[#1c2b33]/10"
+                className={cx(styles.shimmerBar, styles.shimmerBarMid)}
                 animate={{ opacity: [0.4, 0.85, 0.4] }}
                 transition={{
                   duration: 1.4,
@@ -204,7 +199,7 @@ export const ReflectionView = ({
               />
               <motion.div
                 aria-hidden="true"
-                className="h-[19px] w-[54%] rounded-full bg-[#1c2b33]/10"
+                className={cx(styles.shimmerBar, styles.shimmerBarNarrow)}
                 animate={{ opacity: [0.4, 0.85, 0.4] }}
                 transition={{
                   duration: 1.4,
@@ -215,13 +210,13 @@ export const ReflectionView = ({
               />
             </div>
           ) : (
-            <p className="[font-family:'Inter',Helvetica] text-[17px] font-normal leading-[1.5] text-[#1c2b33]/55">
+            <p className={styles.summaryFallback}>
               We couldn’t put your reflection into words this time. Your map
               below still holds what you said.
             </p>
           )
         ) : (
-          <p className="[font-family:'Inter',Helvetica] text-[19px] font-normal leading-[1.5] tracking-[-0.2px] text-[#1c2b33]">
+          <p className={styles.summary}>
             {sentences.map((s, i) =>
               i < visible ? (
                 <motion.span
@@ -244,17 +239,17 @@ export const ReflectionView = ({
           variants={container}
           initial="hidden"
           animate={contentRevealed ? "show" : "hidden"}
-          className="mt-7 flex flex-col gap-8"
+          className={styles.sections}
         >
           {/* Patterns — bigger, insightful chips with real frequency. */}
-          <motion.section variants={item} className="flex flex-col gap-3">
+          <motion.section variants={item} className={styles.section}>
             <SectionTitle>Patterns</SectionTitle>
             <PatternTags patterns={patterns} graph={aggregated} range="all" />
           </motion.section>
 
           {/* The living atom graph — big, full-bleed on the background. */}
-          <motion.section variants={item} className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
+          <motion.section variants={item} className={styles.section}>
+            <div className={styles.mapHeader}>
               <SectionTitle>Your map</SectionTitle>
               <RangeToggle
                 value={mapScope}
@@ -266,10 +261,10 @@ export const ReflectionView = ({
               />
             </div>
             {!mapLoading && aggregated.grewTodayCount > 0 && (
-              <p className="[font-family:'Inter',Helvetica] text-[13px] font-normal leading-[19px] text-[#1c2b33]/55">
+              <p className={styles.mapHint}>
                 {mapScope === "entry" ? (
                   <>
-                    <span className="font-semibold text-[#7c3aed]">
+                    <span className={styles.mapHintEmphasis}>
                       {aggregated.grewTodayCount} new{" "}
                       {aggregated.grewTodayCount === 1 ? "thread" : "threads"}
                     </span>{" "}
@@ -278,7 +273,7 @@ export const ReflectionView = ({
                   </>
                 ) : (
                   <>
-                    <span className="font-semibold text-[#7c3aed]">Tonight</span>{" "}
+                    <span className={styles.mapHintEmphasis}>Tonight</span>{" "}
                     is lit up in purple against your wider map. Tap any node to
                     see what you said and how it connects.
                   </>
@@ -287,7 +282,7 @@ export const ReflectionView = ({
             )}
             {/* Full-bleed: negative margins push past the px-5 page padding so
                 the graph reaches the screen edges, Obsidian-style. No card. */}
-            <div className="-mx-5 mt-1">
+            <div className={styles.graphBleed}>
               <EntryGraph
                 graph={aggregated}
                 range="all"
@@ -298,30 +293,30 @@ export const ReflectionView = ({
           </motion.section>
 
           {/* Next steps */}
-          <motion.section variants={item} className="flex flex-col gap-3">
+          <motion.section variants={item} className={styles.section}>
             <SectionTitle>Next steps</SectionTitle>
-            <ul className="flex flex-col gap-3">
+            <ul className={styles.steps}>
               {nextSteps.map((step, i) => (
-                <li key={i} className="flex flex-col gap-2">
-                  <div className="flex items-start gap-2.5">
+                <li key={i} className={styles.stepItem}>
+                  <div className={styles.stepRow}>
                     <span
                       aria-hidden="true"
-                      className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[linear-gradient(135deg,#c7a6f5,#f7a8c5)]"
+                      className={styles.stepBullet}
                     />
-                    <span className="[font-family:'Inter',Helvetica] text-[14px] font-normal leading-[21px] text-[#1c2b33]/75">
+                    <span className={styles.stepText}>
                       {step}
                     </span>
                   </div>
-                  <div className="pl-4">
+                  <div className={styles.stepResponseWrap}>
                     <textarea
                       value={stepResponses[i] ?? ""}
                       onChange={(e) => handleStepInput(i, e.target.value)}
                       rows={2}
                       placeholder="Write your thoughts here…"
-                      className="w-full resize-none rounded-[14px] border border-[#e7e2ef] bg-white/70 p-3 [font-family:'Inter',Helvetica] text-[13px] leading-[19px] text-[#1c2b33] placeholder:text-[#1c2b33]/30 focus:border-[#c7a6f5] focus:outline-none focus:ring-2 focus:ring-[#c7a6f5]/20"
+                      className={styles.stepResponseInput}
                     />
                     {stepResponses[i]?.trim() && (
-                      <p className="mt-1 [font-family:'Inter',Helvetica] text-[11px] font-medium text-[#c7a6f5]">
+                      <p className={styles.stepSavedNote}>
                         Saved
                       </p>
                     )}
@@ -334,7 +329,7 @@ export const ReflectionView = ({
       </div>
 
       {/* ---- Primary CTA — appears after the content has loaded ---- */}
-      <div className="flex flex-col items-center gap-2.5 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className={styles.footer}>
         <AnimatePresence>
           {(contentRevealed || (!mapLoading && !hasSummary)) && (
             <motion.button
@@ -344,14 +339,10 @@ export const ReflectionView = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: EASE, delay: 0.35 }}
               whileTap={{ scale: 0.96 }}
-              className="all-[unset] box-border flex h-12 cursor-pointer items-center gap-2 rounded-full px-6 text-white shadow-[0_14px_34px_rgba(199,166,245,0.45)] transition-transform hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c7a6f5]"
-              style={{
-                background:
-                  "linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%)",
-              }}
+              className={cx("btnReset", styles.cta)}
               aria-label="Start Daily Practice"
             >
-              <span className="[font-family:'Inter',Helvetica] text-[15px] font-semibold tracking-[-0.2px] text-white">
+              <span className={styles.ctaLabel}>
                 Start Daily Practice
               </span>
               <svg
@@ -364,7 +355,7 @@ export const ReflectionView = ({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="shrink-0"
+                className={styles.ctaIcon}
               >
                 <path d="m9 6 6 6-6 6" />
               </svg>

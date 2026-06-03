@@ -1,7 +1,29 @@
-@import "tailwindcss";
-
 :root {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  /* Type */
+  --font-sans: "Inter", Helvetica, system-ui, -apple-system, sans-serif;
+
+  /* Core colors */
+  --ink: #1c2b33;
+  --icon-gray: #54656e;
+  --record-accent: #b6a0e0;
+  --hot-purple: #7c3aed;
+
+  /* Shared gradients */
+  /* --grad-screen: linear-gradient(250deg, #ffffff 0%, #fdf1f3 28%, #fef6f1 50%); */
+  --grad-screen: #ffffff;
+  --grad-cta: linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 52%, #f7b59a 100%);
+  --grad-pill: linear-gradient(90deg, #c7a6f5 0%, #ec9fc4 100%);
+  --grad-orb: linear-gradient(135deg, rgba(244, 231, 255, 1) 0%, rgba(253, 221, 222, 1) 100%);
+  --grad-step: linear-gradient(135deg, #c7a6f5, #f7a8c5);
+
+  font-family: var(--font-sans);
+}
+
+/* Base reset — replaces the parts of Tailwind's preflight the app relied on. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
@@ -12,4 +34,67 @@ body,
 
 body {
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tailwind's preflight zeroed heading/paragraph margins and inherited fonts;
+ * keep that behavior so converted markup keeps its design spacing. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure,
+blockquote {
+  margin: 0;
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Shared focus ring used across interactive controls. */
+.focusRing:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Base button reset (was Tailwind's `all-[unset] box-border`). */
+.btnReset {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  box-sizing: border-box;
+  cursor: pointer;
 }
