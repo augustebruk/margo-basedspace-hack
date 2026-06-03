@@ -15,8 +15,9 @@ import { useEntries, countWords } from "./useEntries";
 import { HistoryView } from "./HistoryView";
 import { EntryDetailView } from "./EntryDetailView";
 import { InsightsView } from "./InsightsView";
-import { BottomNav, type MenuAction } from "./BottomNav";
 import { WriteEntryView } from "./WriteEntryView";
+import { HomeMenu, type HomeMenuAction } from "./HomeMenu";
+import { PreferencesView } from "./PreferencesView";
 import { cx } from "./cx";
 import styles from "./Frame.module.css";
 
@@ -34,6 +35,7 @@ type Phase =
   | "history"
   | "historyDetail"
   | "insights"
+  | "preferences"
   | "write";
 
 // Minimum time the white "preparing" loading screen shows, so the transition
@@ -491,21 +493,19 @@ export const Frame = (): JSX.Element => {
     }
   }, []);
 
-  const handleNavHome = useCallback(() => {
-    navHistory.current = [];
-    handleBackHome();
-  }, [handleBackHome]);
+  // The bottom-left home button opens a small modal of secondary destinations.
+  const [homeMenuOpen, setHomeMenuOpen] = useState(false);
 
-  const handleMenuAction = useCallback((action: MenuAction) => {
-    if (action === "history") {
-      setSelectedEntryId(null);
-      navigateTo("history");
-    } else if (action === "insights") {
-      navigateTo("insights");
-    } else if (action === "write") {
-      navigateTo("write");
-    }
-  }, [navigateTo]);
+  const handleHomeMenuSelect = useCallback(
+    (action: HomeMenuAction) => {
+      if (action === "insights") {
+        navigateTo("insights");
+      } else if (action === "preferences") {
+        navigateTo("preferences");
+      }
+    },
+    [navigateTo],
+  );
 
   const handleOpenEntry = (id: string) => {
     setSelectedEntryId(id);
@@ -542,10 +542,6 @@ export const Frame = (): JSX.Element => {
 
   const selectedEntry =
     entries.find((entry) => entry.id === selectedEntryId) ?? null;
-
-  // Show the bottom nav bar on all screens except onboarding, loading, and active voice conversation.
-  const showBottomNav = phase !== "onboarding" && phase !== "loading" && !(phase === "entry" && started);
-  const canGoBack = navHistory.current.length > 0;
 
   // Live speech-to-text via ElevenLabs Scribe. Start a streaming session when
   // recording begins and tear it down when it stops. `useScribe` feeds results
@@ -900,6 +896,73 @@ export const Frame = (): JSX.Element => {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Minimal history affordance: a bare icon in the bottom-right
+                  corner of the home screen. */}
+              <AnimatePresence>
+                {!started && (
+                  <motion.button
+                    key="history-fab"
+                    type="button"
+                    onClick={() => {
+                      setSelectedEntryId(null);
+                      navigateTo("history");
+                    }}
+                    aria-label="Past entries"
+                    initial={false}
+                    exit={{ opacity: 0 }}
+                    whileTap={{ scale: 0.9 }}
+                    className={cx("btnReset", "focusRing", styles.fab, styles.fabRight)}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      stroke="currentColor"
+                      strokeWidth={1.7}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 12a9 9 0 1 0 3-6.7" />
+                      <path d="M3 4v4h4" />
+                      <path d="M12 8v4l2.5 2.5" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+              {/* Bottom-left menu affordance: opens the HomeMenu modal
+                  (Insights + Preferences). */}
+              <AnimatePresence>
+                {!started && (
+                  <motion.button
+                    key="menu-fab"
+                    type="button"
+                    onClick={() => setHomeMenuOpen(true)}
+                    aria-label="Menu"
+                    aria-expanded={homeMenuOpen}
+                    initial={false}
+                    exit={{ opacity: 0 }}
+                    whileTap={{ scale: 0.9 }}
+                    className={cx("btnReset", "focusRing", styles.fab, styles.fabLeft)}
+                  >
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      stroke="currentColor"
+                      strokeWidth={1.8}
+                      strokeLinecap="round"
+                    >
+                      <path d="M4 7h16M4 12h16M4 17h16" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : phase === "loading" ? (
             // White "preparing" loading screen with an animated icon.
@@ -964,6 +1027,13 @@ export const Frame = (): JSX.Element => {
               name={name}
               onBack={handleNavBack}
             />
+          ) : phase === "preferences" ? (
+            <PreferencesView
+              key="preferences"
+              name={name}
+              onSaveName={setName}
+              onBack={handleNavBack}
+            />
           ) : phase === "write" ? (
             <WriteEntryView
               key="write-entry"
@@ -993,26 +1063,12 @@ export const Frame = (): JSX.Element => {
           )}
         </AnimatePresence>
 
-        {/* Floating pill nav bar */}
-        <AnimatePresence>
-          {showBottomNav && (
-            <motion.div
-              key="bottom-nav"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 16 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className={styles.bottomNavWrap}
-            >
-              <BottomNav
-                onBack={handleNavBack}
-                onHome={handleNavHome}
-                onMenuAction={handleMenuAction}
-                canGoBack={canGoBack}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Bottom-left home menu modal (Insights + Preferences) */}
+        <HomeMenu
+          open={homeMenuOpen}
+          onClose={() => setHomeMenuOpen(false)}
+          onSelect={handleHomeMenuSelect}
+        />
       </section>
       </div>
     </main>

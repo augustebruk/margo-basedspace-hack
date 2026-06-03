@@ -66,6 +66,7 @@ const EmptyState = (): JSX.Element => (
 export const HistoryView = ({
   entries,
   onOpenEntry,
+  onBack,
 }: HistoryViewProps): JSX.Element => (
   <motion.div
     key="history"
@@ -83,6 +84,27 @@ export const HistoryView = ({
 
     {/* Header */}
     <div className={styles.header}>
+      <button
+        type="button"
+        onClick={onBack}
+        className={cx("btnReset", "focusRing", styles.backButton)}
+        aria-label="Back home"
+      >
+        <svg
+          aria-hidden="true"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m15 6-6 6 6 6" />
+        </svg>
+        Home
+      </button>
       <h1 className={styles.title}>
         Past entries
       </h1>

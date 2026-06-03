@@ -271,6 +271,34 @@
   outline-offset: 2px;
 }
 
+/* ----- Corner FAB buttons (home screen) ----- */
+.fab {
+  position: absolute;
+  bottom: 2rem;
+  z-index: 20;
+  pointer-events: auto;
+  display: flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: rgba(28, 43, 51, 0.4);
+  transition: color 0.15s ease;
+}
+
+.fab:hover {
+  color: rgba(28, 43, 51, 0.7);
+}
+
+.fabRight {
+  right: 1.75rem;
+}
+
+.fabLeft {
+  left: 1.75rem;
+}
+
 /* ----- Loading screen ----- */
 .loading {
   display: flex;
@@ -313,19 +341,5 @@
   font-size: 15px;
   font-weight: 400;
   color: rgba(28, 43, 51, 0.55);
-}
-
-/* ----- Bottom nav wrapper ----- */
-.bottomNavWrap {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
 }
 
