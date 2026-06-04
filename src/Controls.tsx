@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { cx } from "./cx";
 import styles from "./Controls.module.css";
 
@@ -84,6 +84,7 @@ const KeyboardIcon = (): JSX.Element => (
 interface ControlsProps {
   isRecording: boolean;
   isTyping: boolean;
+  composing?: boolean;
   onMicToggle: () => void;
   onToggleKeyboard: () => void;
   onFinish: () => void;
@@ -93,6 +94,7 @@ interface ControlsProps {
 export const Controls = ({
   isRecording,
   isTyping,
+  composing = false,
   onMicToggle,
   onToggleKeyboard,
   onFinish,
@@ -128,7 +130,13 @@ export const Controls = ({
             : "0 10px 26px rgba(28,43,51,0.10)",
         }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        aria-label={isRecording ? "Pause recording" : "Resume recording"}
+        aria-label={
+          isTyping
+            ? "Keyboard input"
+            : isRecording
+              ? "Pause recording"
+              : "Resume recording"
+        }
         aria-pressed={isRecording}
         className={cx(
           "btnReset",
@@ -156,9 +164,10 @@ export const Controls = ({
             />
           </>
         )}
-        {/* Icon sits above the glow/ring. */}
+        {/* Icon sits above the glow/ring. Shows the keyboard glyph while the
+            user is in keyboard mode, the mic otherwise. */}
         <span className={styles.micIcon}>
-          <MicIcon />
+          {isTyping ? <KeyboardIcon /> : <MicIcon />}
         </span>
       </motion.button>
 
@@ -177,23 +186,34 @@ export const Controls = ({
       </div>
 
       {/* Keyboard toggle — switch between speaking and typing for this turn.
-          When recording is paused, tapping the mic resumes and appends. */}
-      <button
-        type="button"
-        onClick={onToggleKeyboard}
-        aria-pressed={isTyping}
-        className={cx("btnReset", "focusRing", styles.keyboardToggle)}
-        title={isTyping ? "Switch Back To Voice" : "Type Instead"}
-      >
-        {isTyping ? (
-          <span className={styles.keyboardToggleIcon}>
-            <MicIcon />
-          </span>
-        ) : (
-          <KeyboardIcon />
+          When recording is paused, tapping the mic resumes and appends. While
+          composing (input focused) it slides down and out of the way to give
+          the text room. */}
+      <AnimatePresence initial={false}>
+        {!composing && (
+          <motion.button
+            key="kb-toggle"
+            type="button"
+            onClick={onToggleKeyboard}
+            aria-pressed={isTyping}
+            initial={{ opacity: 0, y: 12, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: 16, height: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className={cx("btnReset", "focusRing", styles.keyboardToggle)}
+            title={isTyping ? "Switch Back To Voice" : "Type Instead"}
+          >
+            {isTyping ? (
+              <span className={styles.keyboardToggleIcon}>
+                <MicIcon />
+              </span>
+            ) : (
+              <KeyboardIcon />
+            )}
+            <span>{isTyping ? "Use Voice" : "Type Instead"}</span>
+          </motion.button>
         )}
-        <span>{isTyping ? "Use Voice" : "Type Instead"}</span>
-      </button>
+      </AnimatePresence>
     </div>
   );
 };

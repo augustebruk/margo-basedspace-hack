@@ -11,6 +11,7 @@ import { useFollowup } from "./useFollowup";
 import { usePractice } from "./usePractice";
 import { Onboarding } from "./Onboarding";
 import { useOnboarding } from "./useOnboarding";
+import { useInputMode } from "./useInputMode";
 import { useEntries, countWords } from "./useEntries";
 import { HistoryView } from "./HistoryView";
 import { EntryDetailView } from "./EntryDetailView";
@@ -58,6 +59,11 @@ export const Frame = (): JSX.Element => {
   const { name, onboardingComplete, setName, completeOnboarding } =
     useOnboarding();
 
+  // Remembered input modality (voice / keyboard). The next entry — and every
+  // subsequent choice on the main flow — defaults to whatever the user picked
+  // last, persisted across page reloads.
+  const { inputMode, setInputMode } = useInputMode();
+
   // Which screen we're on. New users land in the voice-first onboarding;
   // returning users (onboardingComplete) skip straight to the journaling app.
   const [phase, setPhase] = useState<Phase>(
@@ -71,6 +77,10 @@ export const Frame = (): JSX.Element => {
   const [isRecording, setIsRecording] = useState(false);
   // True while the user has switched to keyboard input for the current turn.
   const [isTyping, setIsTyping] = useState(false);
+  // True while the keyboard textarea is focused — drives the "composing" layout
+  // (orb slides off, prompt pins to the top, the input expands and the control
+  // row drops to give the text the whole screen).
+  const [typingFocused, setTypingFocused] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
   // True once the user has started talking at least once this session. Used to
   // show the one-time "Tap to speak" hint only on the very first question and
@@ -231,7 +241,23 @@ export const Frame = (): JSX.Element => {
   // and scrolls internally, so this is purely about reclaiming the breathing
   // room above once the entry is long: a long entry alone is enough (a long
   // prompt just makes it kick in a touch sooner).
-  const hideOrb = inputLength > 420 || (promptLength > 70 && inputLength > 300);
+  // "Composing" — the keyboard input is focused. Focusing the textarea is what
+  // reshapes the whole entry screen to give the text room: the orb slides off
+  // the top, the prompt pins just below the logo, the input expands, and the
+  // control row drops down (the "Use voice" affordance moves down out of view).
+  const composing = personSpeaking && isTyping && typingFocused;
+
+  // Keyboard mode reshapes the layout. Per spec this is driven by FOCUS, not by
+  // merely switching to typing — so before the textarea is focused the screen
+  // keeps its normal compact layout (orb centered, prompt mid-screen), and only
+  // on focus does everything expand. (Aliased to `composing` and kept as a
+  // separate name because several layout classes below are keyed off it.)
+  const keyboardMode = composing;
+
+  const hideOrb =
+    keyboardMode ||
+    inputLength > 420 ||
+    (promptLength > 70 && inputLength > 300);
 
 
   // ===================================================================
@@ -317,12 +343,24 @@ export const Frame = (): JSX.Element => {
     setBurstKey((k) => k + 1);
     aiSay(OPENING_QUESTION);
 
+    if (inputMode === "keyboard") {
+      // The user last journaled by keyboard — open straight into typing mode
+      // (no mic prompt) so we honor their remembered choice.
+      setIsRecording(false);
+      setIsTyping(true);
+      setTypingFocused(false);
+      setHasEverSpoken(true);
+      listen();
+      return;
+    }
+
     // Activate the mic right away so the user can start speaking without a
     // second tap. Request permission synchronously inside this click handler
     // (Safari/iOS only prompt when getUserMedia is reached directly from a
     // user gesture; the later start() runs too late to trigger the prompt).
     void requestMicPermission();
     setIsTyping(false);
+    setTypingFocused(false);
     setIsRecording(true);
     setHasEverSpoken(true);
     listen();
@@ -344,8 +382,10 @@ export const Frame = (): JSX.Element => {
       // the later start() runs from an effect/microtask, which is too late).
       void requestMicPermission();
       setIsTyping(false);
+      setTypingFocused(false);
       setIsRecording(true);
       setHasEverSpoken(true);
+      setInputMode("voice");
       listen();
     }
   };
@@ -355,6 +395,8 @@ export const Frame = (): JSX.Element => {
       // Leaving keyboard mode — keep the typed text; the user can tap the mic
       // to resume speaking (it will append to what they typed).
       setIsTyping(false);
+      setTypingFocused(false);
+      setInputMode("voice");
     } else {
       // Switching to keyboard pauses the mic so speech doesn't fight typing.
       // Enter the person-speaking turn so the textarea is shown even when the
@@ -362,6 +404,7 @@ export const Frame = (): JSX.Element => {
       setIsRecording(false);
       setIsTyping(true);
       setHasEverSpoken(true);
+      setInputMode("keyboard");
       listen();
     }
   };
@@ -455,6 +498,7 @@ export const Frame = (): JSX.Element => {
     console.log("[nav] back to home");
     setIsRecording(false);
     setIsTyping(false);
+    setTypingFocused(false);
     setHasEverSpoken(false);
     setReflectionSpeaking(false);
     setPersonTranscript("");
@@ -574,14 +618,23 @@ export const Frame = (): JSX.Element => {
 
   // Auto-grow the keyboard textarea to fit its content so it matches the roomy
   // feel of the voice-entry window instead of staying a tiny fixed 2-row box.
+  // When composing (focused) the textarea instead flex-fills the whole space up
+  // to the prompt via `.textareaKeyboard` (height: 100%), so inline auto-grow
+  // is skipped there.
   useEffect(() => {
     const el = typingRef.current;
     if (!el || !(personSpeaking && isTyping)) return;
+    if (composing) {
+      // Let CSS flex control the height; clear any inline height from a prior
+      // auto-grow pass so it doesn't fight the fill.
+      el.style.height = "";
+      return;
+    }
     el.style.height = "auto";
-    // Cap the auto-grown height so the textarea scrolls internally instead of
-    // pushing the controls below the frame (matches the CSS max-height).
+    // Cap the auto-grown height so the (unfocused) textarea scrolls internally
+    // instead of pushing the controls below the frame.
     el.style.height = `${Math.min(el.scrollHeight, 190)}px`;
-  }, [personTranscript, personSpeaking, isTyping]);
+  }, [personTranscript, personSpeaking, isTyping, composing]);
 
   // Keep the live (mic-mode) transcript pinned to its newest words as speech
   // streams in, since the block now scrolls internally instead of growing.
@@ -694,23 +747,30 @@ export const Frame = (): JSX.Element => {
                     : hideOrb
                       ? styles.orbStackHidden
                       : styles.orbStackVisible,
+                  keyboardMode && styles.orbStackKeyboard,
                 )}
               >
                 <div className={styles.orbColumn}>
-                  {/* The orb itself collapses (height → 0) and slides up out of
-                      view when there's truly no room. Kept visible otherwise. */}
+                  {/* The orb slides up and out of view (and gives its space back
+                      via a negative margin) when there's truly no room. Kept
+                      visible otherwise. */}
                   <motion.div
                     animate={{
-                      height: hideOrb ? 0 : "auto",
                       opacity: hideOrb ? 0 : 1,
                       y: hideOrb ? -160 : 0,
                       scale: hideOrb ? 0.6 : 1,
+                      // Pull the following content up by (roughly) the orb's own
+                      // height so it reclaims the space, but drive motion entirely
+                      // through `y`/`scale` so the orb travels the *same* path in
+                      // both directions — straight up when hiding, straight back
+                      // down from the top when re-appearing (no growing-from-the-
+                      // bottom asymmetry that a `height → 0` collapse introduces).
+                      marginBottom: hideOrb ? -160 : 0,
                     }}
                     transition={{ type: "spring", stiffness: 130, damping: 24 }}
-                    // Only clip while collapsing (height → 0). When the orb is
-                    // visible, keep overflow visible so its breathing scale and
-                    // blurred glow halo aren't clipped at the top.
-                    style={{ overflow: hideOrb ? "hidden" : "visible" }}
+                    // Keep overflow visible so the orb's breathing scale and
+                    // blurred glow halo aren't clipped.
+                    style={{ overflow: "visible", pointerEvents: hideOrb ? "none" : "auto" }}
                     className={styles.orbColumn}
                   >
                     <div className={styles.orbInner}>
@@ -770,7 +830,7 @@ export const Frame = (): JSX.Element => {
                             transition={{ duration: 0.4, ease: "easeOut" }}
                             className={styles.tapHint}
                           >
-                            Tap To Speak
+                            {!started ? "Tap To Start" : "Tap To Speak"}
                           </motion.span>
                         )}
                       </AnimatePresence>
@@ -820,7 +880,7 @@ export const Frame = (): JSX.Element => {
                   controls (mic / finish / next) always stay on screen — the
                   input area above caps and scrolls internally instead of
                   pushing the controls down out of view. */}
-              <div className={styles.bottomBlock}>
+              <div className={cx(styles.bottomBlock, keyboardMode && styles.bottomBlockKeyboard)}>
                 <AnimatePresence mode="wait">
                   {started && (
                     <motion.div
@@ -828,9 +888,14 @@ export const Frame = (): JSX.Element => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
-                      className={styles.live}
+                      className={cx(styles.live, keyboardMode && styles.liveKeyboard)}
                     >
-                      <div className={styles.transcriptArea}>
+                      <div
+                        className={cx(
+                          styles.transcriptArea,
+                          keyboardMode && styles.transcriptAreaKeyboard,
+                        )}
+                      >
                         <AnimatePresence mode="wait">
                           {personSpeaking && !isTyping && (
                             <motion.div
@@ -865,7 +930,7 @@ export const Frame = (): JSX.Element => {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: 8 }}
                               transition={{ duration: 0.3, ease: "easeOut" }}
-                              className={styles.turnGroup}
+                              className={cx(styles.turnGroup, keyboardMode && styles.turnGroupKeyboard)}
                             >
                               <span className={styles.turnLabel}>
                                 Your turn
@@ -875,9 +940,14 @@ export const Frame = (): JSX.Element => {
                                 autoFocus
                                 value={personTranscript}
                                 onChange={(e) => setPersonTranscript(e.target.value)}
+                                onFocus={() => setTypingFocused(true)}
+                                onBlur={() => setTypingFocused(false)}
                                 placeholder="Type to add to your entry…"
                                 rows={2}
-                                className={styles.textarea}
+                                className={cx(
+                                  styles.textarea,
+                                  keyboardMode && styles.textareaKeyboard,
+                                )}
                               />
                             </motion.div>
                           )}
@@ -887,6 +957,7 @@ export const Frame = (): JSX.Element => {
                       <Controls
                         isRecording={isRecording}
                         isTyping={isTyping}
+                        composing={composing}
                         onMicToggle={handleMicToggle}
                         onToggleKeyboard={handleToggleKeyboard}
                         onFinish={() => handleFinishEntry()}

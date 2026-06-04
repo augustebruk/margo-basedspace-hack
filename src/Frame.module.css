@@ -101,6 +101,13 @@
   justify-content: flex-start;
 }
 
+/* Keyboard mode: the orb is hidden and the prompt pins to the top, so the
+   stack shrinks to its content height — handing all remaining vertical space
+   to the input field below (which flex-fills up to this prompt). */
+.orbStackKeyboard {
+  flex: 0 0 auto;
+}
+
 .orbStackVisible {
   justify-content: flex-end;
 }
@@ -183,12 +190,24 @@
   align-items: center;
 }
 
+/* In keyboard mode we let the bottom block grow to claim the whole space
+   between the prompt and the controls so the input field can fill it. */
+.bottomBlockKeyboard {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
 .live {
   display: flex;
   width: 100%;
   flex-direction: column;
   align-items: center;
   gap: 1.75rem;
+}
+
+.liveKeyboard {
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .transcriptArea {
@@ -198,8 +217,18 @@
   width: 100%;
   align-items: flex-end;
   justify-content: center;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+  padding-left: 0.125rem;
+  padding-right: 0.125rem;
+  transition: max-height 0.35s ease;
+}
+
+/* Keyboard mode (not yet focused): the input fills the available vertical
+   space up to the prompt, leaving the gap below for the controls. */
+.transcriptAreaKeyboard {
+  flex: 1 1 0%;
+  min-height: 0;
+  max-height: none;
+  align-items: stretch;
 }
 
 .turnGroup {
@@ -208,6 +237,13 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Keyboard mode: the turn group fills its (now flexing) parent so the textarea
+   inside it can stretch to the full available height. */
+.turnGroupKeyboard {
+  flex: 1 1 0%;
+  min-height: 0;
 }
 
 .turnLabel {
@@ -244,7 +280,6 @@
 
 .textarea {
   width: 100%;
-  max-width: 300px;
   resize: none;
   overflow-y: auto;
   border-radius: 1rem;
@@ -266,6 +301,24 @@
   color: rgba(28, 43, 51, 0.35);
 }
 
+/* Keyboard mode (focused): the textarea grows to take all the room between the
+   prompt and the controls, with a roomier, left-aligned document-like feel.
+   Auto-grow inline height is skipped in this state (see Frame.tsx) so flex
+   controls the height. */
+.textareaKeyboard {
+  flex: 1 1 0%;
+  min-height: 0;
+  max-height: none;
+  height: 100% !important;
+  text-align: left;
+  padding: 1rem 1.125rem;
+  border-color: rgba(199, 166, 245, 0.5);
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(28, 43, 51, 0.08);
+}
+
+/* Composing (focused): a roomier field with a left-aligned, document-like feel
+   for longer writing, expanded to use the space freed by the lifted orb. */
 .textarea:focus-visible {
   outline: 2px solid var(--record-accent);
   outline-offset: 2px;
