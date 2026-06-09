@@ -371,7 +371,7 @@ export const ReflectionView = ({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, ease: EASE, delay: 0.5 }}
-              className="all-[unset] box-border inline-flex cursor-pointer items-center gap-1.5 [font-family:'Inter',Helvetica] text-[14px] font-medium text-[#1c2b33]/55 hover:text-[#1c2b33]/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1c2b33]"
+              className={cx("btnReset", "focusRing", styles.backHome)}
               aria-label="Return Home"
             >
               <svg
