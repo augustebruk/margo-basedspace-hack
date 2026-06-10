@@ -11,6 +11,10 @@
 
 .mainPhone {
   padding: 0;
+  /* On a real phone the frame is scaled to FIT (contain), so one axis may
+     leave a thin letterbox band. Match it to the app's background so the bars
+     read as part of the app rather than a grey desktop margin. */
+  background: #ffffff;
 }
 
 .scaleWrap {

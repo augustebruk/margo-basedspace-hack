@@ -141,12 +141,15 @@ export const Frame = (): JSX.Element => {
       setIsPhone(phone);
 
       if (phone) {
-        // Fill the entire viewport edge-to-edge with NO visible margin. We use
-        // "cover" (Math.max): the fixed design space is scaled up until it
-        // covers both viewport dimensions, so there's never a grey bar on any
-        // edge. Any slight overflow on the looser axis (e.g. a short phone like
-        // the iPhone SE) is clipped by the frame's `overflow-hidden`.
-        const scale = Math.max(
+        // Fit the WHOLE frame inside the viewport with "contain" (Math.min):
+        // the fixed design space is scaled until it fits within BOTH viewport
+        // dimensions, so the entire 390×844 layout — including the bottom
+        // controls — always stays on screen and nothing is clipped or pushed
+        // out of view. (The previous "cover"/Math.max behavior scaled the frame
+        // up until it covered both axes, which on phones whose viewport is
+        // shorter/wider than 390:844 — common once browser chrome eats the
+        // height — pushed the bottom of the frame, and its buttons, off screen.)
+        const scale = Math.min(
           window.innerWidth / FRAME_W,
           window.innerHeight / FRAME_H,
         );
